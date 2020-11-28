@@ -1,0 +1,28 @@
+resolver: clash-HEAD.yaml
+
+extra-deps:
+  - barbies-2.0.2.0
+  - barbies-th-0.1.7
+  - monad-supply-0.9
+
+  - terminal-0.2.0.0
+
+  - github: emilypi/smash
+    commit: bd3ae30bdfef3f92ce5575a1ee10228830afa11b
+    subdirs:
+      - smash-core
+
+  - constraints-extras-0.3.0.2
+  - dependent-sum-0.7.1.0
+  - dependent-map-0.4.0.0
+
+packages:
+  - retroclash-lib
+  - retroclash-sim
+  - clash-shake
+  - clash-intel8080
+  - clashilator
+  - .
+
+ghc-options:
+  dependent-map: -fexpose-all-unfoldings -fno-worker-wrapper

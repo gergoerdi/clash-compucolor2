@@ -1,0 +1,106 @@
+name:                clash-compucolor2
+version:             0.1.0
+synopsis:            "Compucolor 2 home computer"
+homepage:            https://github.com/gergoerdi/clash-compucolor2
+license:             MIT
+author:              Gergő Érdi
+maintainer:          gergo@erdi.hu
+copyright:           2020 Gergő Érdi
+category:            Hardware
+
+extra-source-files:
+  - LICENSE
+  - README.md
+
+data-files:
+  - image/*
+
+custom-setup:
+  dependencies:
+    - base
+    - Cabal
+    - clashilator
+
+dependencies:
+  - base >= 4.7 && < 5
+  - clash-prelude
+  - ghc-typelits-natnormalise
+  - ghc-typelits-extra
+  - ghc-typelits-knownnat
+
+  - retroclash-lib
+  - clash-shake
+  - intel8080
+
+  - bytestring
+  - mtl
+  - transformers
+  - array
+  - lens
+  - barbies
+  - barbies-th
+  - tuple
+
+# Anything that Clash uses by default should go here
+default-extensions:
+  - BinaryLiterals
+  - ConstraintKinds
+  - DataKinds
+  - DeriveAnyClass
+  - DeriveGeneric
+  - DeriveLift
+  - DerivingStrategies
+  - ExplicitForAll
+  - ExplicitNamespaces
+  - FlexibleContexts
+  - FlexibleInstances
+  - KindSignatures
+  - MagicHash
+  - MonoLocalBinds
+  - NoImplicitPrelude
+  - NoStarIsType
+  - NoStrictData
+  - NoStrict
+  - QuasiQuotes
+  - ScopedTypeVariables
+  - TemplateHaskellQuotes
+  - TemplateHaskell
+  - TypeApplications
+  - TypeFamilies
+  - TypeOperators
+
+ghc-options:
+  -fexpose-all-unfoldings -fno-worker-wrapper
+  -fplugin GHC.TypeLits.KnownNat.Solver
+  -fplugin GHC.TypeLits.Normalise
+  -fplugin GHC.TypeLits.Extra.Solver
+
+source-dirs:
+  - src
+
+flags:
+  verilator:
+    manual: True
+    default: False
+
+executables:
+  compucolor2-sim:
+    main: sim.hs
+    dependencies:
+      - retroclash-sim
+      - sdl2
+
+  compucolor2-verilator:
+    main: sim-verilator.hs
+    dependencies:
+      - retroclash-sim
+      - sdl2
+      - extra
+    when:
+    - condition: flag(verilator)
+      then:
+        verbatim:
+          x-clashilator-top-is: Hardware.Compucolor2
+          x-clashilator-clock: CLK_40MHZ
+      else:
+        buildable: false
