@@ -39,7 +39,8 @@ main = do
               addr = bitCoerce (c, y0) :: Index 1024
               row = fontROM ! addr
               pixel = testBit row (7 - fromIntegral x0)
-          in if pixel then (maxBound, maxBound, maxBound) else (minBound, minBound, minBound)
+              g = if even x1 `xor` even y1 then 0x60 else minBound
+          in if pixel then (maxBound, maxBound, maxBound) else (minBound, g, minBound)
 
 videoParams :: VideoParams
 videoParams = MkVideoParams
