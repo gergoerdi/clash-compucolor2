@@ -84,6 +84,12 @@ flags:
     default: False
 
 executables:
+  compucolor2-font:
+    main: sim/font.hs
+    dependencies:
+      - retroclash-sim
+      - sdl2
+
   compucolor2-sim:
     main: sim/sim.hs
     dependencies:
