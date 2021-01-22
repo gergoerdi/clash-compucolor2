@@ -96,6 +96,12 @@ executables:
       - retroclash-sim
       - sdl2
 
+  compucolor2-cpu-screen:
+    main: sim/cpu-screen.hs
+    dependencies:
+      - retroclash-sim
+      - sdl2
+
   compucolor2-sim:
     main: sim/sim.hs
     dependencies:
