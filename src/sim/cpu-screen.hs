@@ -16,6 +16,7 @@ import Data.Char (ord)
 import qualified Data.List as L
 import Data.Foldable (traverse_)
 import Data.Traversable (for)
+import Data.Word
 
 import Data.Maybe (isJust)
 import Text.Printf
@@ -59,8 +60,11 @@ main = do
               glyphAddr = bitCoerce (c, y0')
               glyphRow = fontROM ! glyphAddr
               pixel = testBit glyphRow (7 - fromIntegral x0)
-              g = if even x1 `xor` even y1 then 0x60 else minBound
-          in if pixel then (maxBound, maxBound, maxBound) else (minBound, g, minBound)
+              attr = vidRAM ! (charAddr + 1)
+              (isChar, blink, back, fore) = bitCoerce @_ @(Bool, Bool, _, _) attr
+              (r, g, b) = toColor $ if pixel then fore else back
+              checker = if even x1 `xor` even y1 then 0x60 else minBound
+          in (r, g `max` checker, b)
 
 videoParams :: VideoParams
 videoParams = MkVideoParams
@@ -69,3 +73,8 @@ videoParams = MkVideoParams
     , screenRefreshRate = 60
     , reportFPS = True
     }
+
+toColor :: (Bit, Bit, Bit) -> (Word8, Word8, Word8)
+toColor (b, g, r) = (stretch r, stretch g, stretch b)
+  where
+    stretch x = if x == 0 then minBound else maxBound
