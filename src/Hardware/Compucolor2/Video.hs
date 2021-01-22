@@ -13,7 +13,12 @@ import Control.Monad
 -- | 40 MHz clock, needed for the VGA mode we use.
 createDomain vSystem{vName="Dom40", vPeriod = hzToPeriod 40_000_000}
 
-type VidSize = 0x1000
+type TextWidth = 64
+type TextHeight = 32
+type FontWidth = 6
+type FontHeight = 8
+
+type VidSize = TextWidth * TextHeight * 2
 type VidAddr = Index VidSize
 
 video

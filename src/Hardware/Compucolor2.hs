@@ -1,6 +1,7 @@
 {-# LANGUAGE NumericUnderscores, RecordWildCards #-}
 module Hardware.Compucolor2
     ( topEntity
+    , mainBoard
     ) where
 
 import Clash.Prelude
@@ -37,7 +38,37 @@ mainBoard
        )
 mainBoard vidRead = (vidAddr, vidWrite)
   where
-    vidAddr = pure Nothing
-    vidWrite = pure Nothing
+    CPUOut{..} = intel8080 CPUIn{..}
+
+    interruptRequest = pure False
+    rst = pure Nothing
+
+    (dataIn, (vidAddr, vidWrite)) = $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
+        override [|rst|] $ do
+            rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
+            ram <- ram0 (SNat @0x8000)
+            (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
+
+            -- (tms, _) <- port @(Index 0x10) [| ... |]
+            -- (crt, _) <- port @(Index 0x10) [| ... |]
+            -- prom <- port_ @(Index 0x20) [| ... |]
+
+            tms <- readWrite_ @(Index 0x10) (\_ _ -> [|pure $ Just 0x00|])
+            crt <- readWrite_ @(Index 0x10) (\_ _ -> [|pure $ Just 0x00|])
+            prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|])
+
+            matchLeft $ do
+                from 0x00 $ connect tms
+                from 0x10 $ connect tms
+                from 0x60 $ connect crt
+                from 0x70 $ connect crt
+                from 0x80 $ connect prom
+
+            matchRight $ do
+                from 0x0000 $ connect rom
+                from 0x6000 $ tag True $  connect vid
+                from 0x7000 $ tag False $ connect vid
+                from 0x8000 $ connect ram
+            return (vidAddr, vidWrite))
 
 makeTopEntity 'topEntity
