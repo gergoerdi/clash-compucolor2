@@ -46,9 +46,9 @@ video CRTOut{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> extWrite) =
     frameEnd = liftD (isFalling False) (isJust <$> textY)
 
     rgb = do
-        x <- textX
-        y <- textY
-        pure $ (maybe @_ @(Index TextWidth) 0 fromIntegral x, maybe @_ @(Index TextHeight) 0 fromIntegral y, 0)
+        x <- maybe @_ @(Index TextWidth) 0 fromIntegral <$> textX
+        y <- maybe @_ @(Index TextHeight) 0 fromIntegral <$> textY
+        pure $ (x `shiftL` 2, y `shiftL` 3, 0)
 
     intAddr = pure Nothing
 
