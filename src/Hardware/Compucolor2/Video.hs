@@ -6,39 +6,49 @@ import Clash.Prelude
 import qualified Clash.Signal.Delayed.Bundle as D
 import RetroClash.Utils
 import RetroClash.VGA
+import RetroClash.Video
 import RetroClash.Delayed
 import RetroClash.Clock
+import Hardware.Compucolor2.CRT5027
+
 import Control.Monad
+import Data.Maybe (isJust)
 
--- | 40 MHz clock, needed for the VGA mode we use.
-createDomain vSystem{vName="Dom40", vPeriod = hzToPeriod 40_000_000}
-
-type TextWidth = 64
-type TextHeight = 32
 type FontWidth = 6
 type FontHeight = 8
 
 type VidSize = TextWidth * TextHeight * 2
 type VidAddr = Index VidSize
 
+-- | 40 MHz clock, needed for the VGA mode we use.
+createDomain vSystem{vName="Dom40", vPeriod = hzToPeriod 40_000_000}
+
 video
     :: (HiddenClockResetEnable Dom40)
-    => Signal Dom40 (Maybe (Bool, VidAddr))
+    => CRTOut Dom40
+    -> Signal Dom40 (Maybe (Bool, VidAddr))
     -> Signal Dom40 (Maybe (Unsigned 8))
     -> ( VGAOut Dom40 8 8 8
+       , Signal Dom40 Bool
        , Signal Dom40 (Maybe (Unsigned 8))
        )
-video (unsafeFromSignal -> extAddr) (unsafeFromSignal -> extWrite) =
+video CRTOut{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> extWrite) =
     ( delayVGA vgaSync rgb
+    , toSignal $ delayI False frameEnd <* rgb
     , toSignal extRead
     )
   where
     VGADriver{..} = vgaDriver vga800x600at60
+    -- (vgaY', scanline) = scale (SNat @2) . center $ vgaY
+    (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @6) . fst . scale (SNat @2) . center $ vgaX
+    (fromSignal -> textY, fromSignal -> glyphY) = scale (SNat @8) . fst . scale (SNat @2) . center $ vgaY
 
-    rgb = fromSignal $ do
-        x <- vgaX
-        y <- vgaY
-        pure $ (maybe 0 fromIntegral x, maybe 0 fromIntegral y, 0)
+    frameEnd = liftD (isFalling False) (isJust <$> textY)
+
+    rgb = do
+        x <- textX
+        y <- textY
+        pure $ (maybe @_ @(Index TextWidth) 0 fromIntegral x, maybe @_ @(Index TextHeight) 0 fromIntegral y, 0)
 
     intAddr = pure Nothing
 

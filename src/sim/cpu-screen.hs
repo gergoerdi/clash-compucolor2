@@ -4,8 +4,10 @@ import Clash.Prelude hiding ((!), lift)
 
 import RetroClash.Sim.SDL
 import RetroClash.Sim.IO
-import Hardware.Compucolor2.Video
+
 import Hardware.Compucolor2
+import Hardware.Compucolor2.Video
+import Hardware.Compucolor2.CRT5027
 
 import Data.Array.IO
 import Data.Array ((!))
@@ -38,7 +40,7 @@ main = do
 
     vidRAM <- newArray @IOArray @(Unsigned 8) @_ @(Index (TextWidth * TextHeight * 2)) (minBound, maxBound) 0x20
 
-    sim <- simulateIO_ @System (bundle . mainBoard) Nothing
+    sim <- simulateIO_ @System (bundle . simBoard) Nothing
 
     withMainWindow videoParams $ \events keyDown -> do
         guard $ not $ keyDown ScancodeEscape
