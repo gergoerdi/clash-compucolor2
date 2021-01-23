@@ -55,19 +55,20 @@ mainBoard vidRead = (crtOut, vidAddr, vidWrite)
         (crt, crtOut) <- port @(Index 0x10) [| crt5027 (pure False) |]
         prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
-        override [|rst|] $ do
-            matchLeft $ do
-                from 0x00 $ connect tms
-                from 0x10 $ connect tms
-                from 0x60 $ connect crt
-                from 0x70 $ connect crt
-                from 0x80 $ connect prom
+        override [|rst|]
 
-            matchRight $ do
-                from 0x0000 $ connect rom
-                from 0x6000 $ tag True $  connect vid
-                from 0x7000 $ tag False $ connect vid
-                from 0x8000 $ connect ram
+        matchLeft $ do
+            from 0x00 $ connect tms
+            from 0x10 $ connect tms
+            from 0x60 $ connect crt
+            from 0x70 $ connect crt
+            from 0x80 $ connect prom
+
+        matchRight $ do
+            from 0x0000 $ connect rom
+            from 0x6000 $ tag True $ connect vid
+            from 0x7000 $ tag False $ connect vid
+            from 0x8000 $ connect ram
 
         return (crtOut, vidAddr, vidWrite))
 
