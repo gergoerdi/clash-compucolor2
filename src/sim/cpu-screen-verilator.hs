@@ -8,6 +8,7 @@ import Foreign.Storable
 import Foreign.Marshal.Alloc
 
 import Hardware.Compucolor2.Sim
+import Hardware.Compucolor2.Sim.SDL
 import Hardware.Compucolor2.Video
 
 import Data.Array.IO

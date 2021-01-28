@@ -29,8 +29,12 @@ dependencies:
   - ghc-typelits-knownnat
 
   - retroclash-lib
+  - retroclash-sim
   - clash-shake
   - intel8080
+
+  - sdl2
+  - terminal
 
   - bytestring
   - mtl
@@ -117,12 +121,33 @@ executables:
       else:
         buildable: false
 
+  compucolor2-cpu-textscreen:
+    main: sim/cpu-textscreen.hs
+    dependencies:
+      - retroclash-sim
+      - terminal
+
+  compucolor2-cpu-textscreen-verilator:
+    main: sim/cpu-textscreen-verilator.hs
+    dependencies:
+      - retroclash-sim
+      - terminal
+    when:
+    - condition: flag(verilator)
+      then:
+        verbatim:
+          x-clashilator-top-is: Hardware.Compucolor2
+          x-clashilator-entity: simEntity
+          x-clashilator-clock: CLK_40MHZ
+      else:
+        buildable: false
+
   compucolor2-sim:
     main: sim/sim.hs
     dependencies:
       - retroclash-sim
       - sdl2
-
+      
   compucolor2-verilator:
     main: sim/verilator.hs
     dependencies:

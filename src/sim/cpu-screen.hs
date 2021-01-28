@@ -4,7 +4,7 @@ import RetroClash.Sim.SDL
 import RetroClash.Sim.IO
 
 import Hardware.Compucolor2
-import Hardware.Compucolor2.Sim
+import Hardware.Compucolor2.Sim.SDL
 
 import Data.Array.IO
 import qualified Data.ByteString as BS
