@@ -21,7 +21,9 @@ putScreen
     -> m ()
 putScreen vidRAM = do
     eraseInDisplay EraseAll
+    hideCursor
     setCursorPosition $ Position 0 0
+    setAutoWrap False
 
     vidRAM <- liftIO $ freeze vidRAM
     for_ [minBound..maxBound] $ \(y :: Index TextHeight) -> do
@@ -32,8 +34,8 @@ putScreen vidRAM = do
                 (tall, c) = bitCoerce (vidRAM ! addr) :: (Bool, Unsigned 7)
                 attr = vidRAM ! (addr + 1)
                 (isChar, blink, back, fore) = bitCoerce @_ @(Bool, Bool, _, _) attr
-            setAttribute $ foreground $ toColor fore
-            setAttribute $ background $ toColor back
+            setAttribute $ foreground $ bright $ toColor fore
+            setAttribute $ background $ bright $ toColor back
             unless (tall && odd y) $ putChar (chr . fromIntegral $ c)
     flush
   where
