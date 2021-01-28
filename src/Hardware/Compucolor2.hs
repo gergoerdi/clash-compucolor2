@@ -1,6 +1,7 @@
 {-# LANGUAGE NumericUnderscores, RecordWildCards #-}
 module Hardware.Compucolor2
     ( topEntity
+    , simEntity
     , mainBoard
     , simBoard
     ) where
@@ -82,4 +83,15 @@ simBoard vidRead = (vidAddr, vidWrite)
   where
     (_crtOut, vidAddr, vidWrite) = mainBoard vidRead
 
+simEntity
+    :: "CLK_40MHZ"    ::: Clock Dom40
+    -> "VID_READ"     ::: Signal Dom40 (Maybe (Unsigned 8))
+    -> ( "VID_ADDR"   ::: Signal Dom40 (Maybe (Bool, VidAddr))
+       , "VID_WRITE"  ::: Signal Dom40 (Maybe (Unsigned 8))
+       )
+simEntity = withResetEnableGen $ \vidRead ->
+  let (_crtOut, vidAddr, vidWrite) = mainBoard vidRead
+  in (vidAddr, vidWrite)
+
 makeTopEntity 'topEntity
+makeTopEntity 'simEntity
