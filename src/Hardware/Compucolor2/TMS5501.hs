@@ -60,7 +60,8 @@ declareBareB [d|
 declareBareB [d|
   data Output = MkOutput
       { parallelOut :: Value
-      , irq :: Maybe Interrupt
+      , irq :: Bool
+      , int :: Maybe Value
       } |]
 
 tms5501
@@ -71,10 +72,11 @@ tms5501
     -> Signal dom (Maybe (PortCommand Port Value))
     -> ( Signal dom (Maybe Value)
        , ( Signal dom Value
-         , Signal dom (Maybe Interrupt)
+         , Signal dom Bool
+         , Signal dom (Maybe Value)
          )
        )
-tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, irq))
+tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, irq, int))
   where
     (dataOut, bunbundle -> MkOutput{..}) = unbundle . mealyState step initS . bundle $ (cmd, tick, bbundle MkInput{..})
 
@@ -88,11 +90,17 @@ tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, irq))
         handleInput inputTrigger
         countdown tick
 
-        irq <- getPending
+        pending <- getPending
+        let irq = isJust pending
 
-        dataOut <- do
+        (int, dataOut) <- do
             shouldAck <- use enableAck
-            if shouldAck && ack then Nothing <$ traverse_ clearPending irq else Just <$> exec inp tick cmd
+            if shouldAck && ack then do
+                traverse_ clearPending pending
+                return (Just $ toRST pending, Nothing)
+              else do
+                dataOut <- exec inp tick cmd
+                return (Nothing, Just dataOut)
 
         parallelOut <- complement <$> use parallelBuf
         return (dataOut, MkOutput{..})
@@ -102,9 +110,9 @@ exec MkInput{..} tick cmd = case cmd of
     Just (ReadPort 0x0) -> return 0x00 -- TODO: serial in
     Just (ReadPort 0x1) -> return parallelIn
     Just (ReadPort 0x2) -> do
-        irq <- getPending
-        traverse_ clearPending irq
-        return $ rst . fromMaybe 7 $ irq
+        pending <- getPending
+        traverse_ clearPending pending
+        return $ toRST pending
     Just (ReadPort 0x3) -> getStatus
 
     Just (WritePort port x) -> (*> return 0x00) $ case port of
@@ -175,6 +183,9 @@ getPending = do
     masked <- getMaskedInterrupt
     return $ if masked == 0 then Nothing else Just . fromIntegral $ countTrailingZeros masked
 
+toRST :: Maybe Interrupt -> Value
+toRST = rst . fromMaybe 7
+
 clearPending :: Interrupt -> State S ()
 clearPending i = do
     intBuf %= (`clearBit` fromIntegral i)
@@ -191,6 +202,7 @@ execDiscrete cmd = do
     -- TODO: bit 5 --> interrupt output is clock (?)
   where
     break = do
+        -- TODO
         return ()
 
     reset = do

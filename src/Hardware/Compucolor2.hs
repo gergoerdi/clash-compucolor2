@@ -9,10 +9,10 @@ module Hardware.Compucolor2
 import Clash.Prelude
 import Clash.Annotations.TH
 
+import Hardware.Compucolor2.TMS5501 as TMS5501
 import Hardware.Compucolor2.CRT5027
 import Hardware.Compucolor2.Video
 import Hardware.Intel8080.CPU
-import Hardware.Intel8080.Interruptor
 
 import RetroClash.Utils
 import RetroClash.VGA
@@ -30,58 +30,58 @@ topEntity = withEnableGen board
   where
     board ps2 = vga
       where
-        (crtOut, vidAddr, vidWrite) = mainBoard vidRead
+        (crtOut, vidAddr, vidWrite, kbdRow) = mainBoard vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
-    :: (HiddenClockResetEnable dom)
+    :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom (Maybe (Unsigned 8))
     -> ( CRTOut dom
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
+       , Signal dom (Unsigned 8)
        )
-mainBoard vidRead = (crtOut, vidAddr, vidWrite)
+mainBoard vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
-    interruptRequest = pure False
-    rst = pure Nothing
+    (dataIn, (crtOut, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
+        $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
+            rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
+            ram <- ram0 (SNat @0x8000)
+            (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
-    (dataIn, (crtOut, vidAddr, vidWrite)) = $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
-        rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
-        ram <- ram0 (SNat @0x8000)
-        (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
+            -- TODO: how can we pattern match on tmsOut?
+            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure False) (pure 0x00) _interruptAck |]
+            (crt, crtOut) <- port @(Index 0x10) [| crt5027 (pure False) |]
+            prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
-        tms <- readWrite_ @(Index 0x10) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
-        (crt, crtOut) <- port @(Index 0x10) [| crt5027 (pure False) |]
-        prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
+            override [|rst|]
 
-        override [|rst|]
+            matchLeft $ do
+                from 0x00 $ connect tms
+                from 0x10 $ connect tms
+                from 0x60 $ connect crt
+                from 0x70 $ connect crt
+                from 0x80 $ connect prom
 
-        matchLeft $ do
-            from 0x00 $ connect tms
-            from 0x10 $ connect tms
-            from 0x60 $ connect crt
-            from 0x70 $ connect crt
-            from 0x80 $ connect prom
+            matchRight $ do
+                from 0x0000 $ connect rom
+                from 0x6000 $ tag True $ connect vid
+                from 0x7000 $ tag False $ connect vid
+                from 0x8000 $ connect ram
 
-        matchRight $ do
-            from 0x0000 $ connect rom
-            from 0x6000 $ tag True $ connect vid
-            from 0x7000 $ tag False $ connect vid
-            from 0x8000 $ connect ram
-
-        return (crtOut, vidAddr, vidWrite))
+            return (crtOut, (vidAddr, vidWrite), tmsOut))
 
 simBoard
-    :: (HiddenClockResetEnable dom)
+    :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom (Maybe (Unsigned 8))
     -> ( Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_crtOut, vidAddr, vidWrite) = mainBoard vidRead
+    (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40
@@ -90,7 +90,7 @@ simEntity
        , "VID_WRITE"  ::: Signal Dom40 (Maybe (Unsigned 8))
        )
 simEntity = withResetEnableGen $ \vidRead ->
-  let (_crtOut, vidAddr, vidWrite) = mainBoard vidRead
+  let (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard vidRead
   in (vidAddr, vidWrite)
 
 makeTopEntity 'topEntity
