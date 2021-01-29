@@ -35,6 +35,7 @@ data S = MkS
     , _parallelBuf :: Value
     , _enableInputTrigger :: Bool
     , _enableAck :: Bool
+    , _tickScaler :: Maybe (Index 8)
     }
     deriving (Show, Generic, NFDataX)
 makeLenses ''S
@@ -47,6 +48,7 @@ initS = MkS
     , _parallelBuf = 0x00
     , _enableInputTrigger = False
     , _enableAck = True
+    , _tickScaler = Just maxBound
     }
 
 declareBareB [d|
@@ -80,7 +82,7 @@ tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, irq, int))
   where
     (dataOut, bunbundle -> MkOutput{..}) = unbundle . mealyState step initS . bundle $ (cmd, tick, bbundle MkInput{..})
 
-    tick = risePeriod (SNat @(Microseconds 64))
+    tick = risePeriod (SNat @(Microseconds 8))
 
     senseTrigger = isRising False sense
     inputTrigger = isRising low $ msb <$> parallelIn
@@ -131,9 +133,18 @@ exec MkInput{..} tick cmd = case cmd of
     _ -> return 0x00
 
 countdown :: Bool -> State S ()
-countdown tick = when tick $ forM_ [0..4] $ \(fromIntegral -> i) -> do
-    count <- uses timers (!! i)
-    traverse_ (setTimer i) (predIdx count)
+countdown tick = do
+    tick' <- do
+        scale <- use tickScaler
+        case scale of
+            Nothing -> return tick
+            Just cnt -> do
+                when tick $ tickScaler .= Just (prevIdx cnt)
+                return $ tick && cnt == 0
+
+    when tick' $ forM_ [0..4] $ \(fromIntegral -> i) -> do
+        count <- uses timers (!! i)
+        traverse_ (setTimer i) (predIdx count)
 
 handleSense :: Bool -> State S ()
 handleSense trigger = when trigger $ setInt 2
@@ -198,7 +209,7 @@ execDiscrete cmd = do
 
     enableInputTrigger .= cmd `testBit` 2
     enableAck .= cmd `testBit` 3
-    -- TODO: bit 4 --> 8x faster clock
+    tickScaler .= if cmd `testBit` 4 then Nothing else Just maxBound
     -- TODO: bit 5 --> interrupt output is clock (?)
   where
     break = do
