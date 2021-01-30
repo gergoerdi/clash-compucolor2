@@ -71,20 +71,19 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     -- `glyphLoad`'s def should constrain it to `Bool`?
     (isChar, glyphAddr) = D.unbundle $ bitCoerce @_ @(Bool, _) . fromMaybe 0 <$> charLoad
 
-    glyphLoad = mux (delayI False isChar)
-        (fontRom glyphAddr (fromMaybe 0 <$> delayI Nothing glyphY))
-        (pure 0x00) -- TODO: get glyph data from char itself
+    glyphLoad = enable (delayI False $ isJust <$> charLoad) $
+        mux (delayI False isChar)
+          (fontRom glyphAddr (fromMaybe 0 <$> delayI Nothing glyphY))
+          (pure 0x00) -- TODO: get glyph data from char itself
     newCol = liftD (changed Nothing) glyphX
-    glyphRow = delayedRegister 0x00 $ \glyphRow ->
-      mux (delayI False newChar) glyphLoad $
-      mux (delayI False newCol) ((`shiftL` 1) <$> glyphRow) $
-      glyphRow
+
+    pixel = shiftOutL glyphLoad (delayI False newCol)
 
     rgb = do
         x <- delayI Nothing textX
         y <- delayI Nothing textY
         cursor <- delayI Nothing $ fromSignal cursor
-        pixel <- bitToBool . msb <$> glyphRow
+        pixel <- bitToBool <$> pixel
 
         pure $ case liftA2 (,) x y of
             Nothing -> (0x30, 0x30, 0x30)
@@ -102,9 +101,39 @@ fontRom
     :: (HiddenClockResetEnable dom)
     => DSignal dom n (Unsigned 7)
     -> DSignal dom n (Index FontHeight)
-    -> DSignal dom (n + 1) (Unsigned 8) -- (Unsigned FontWidth)
+    -> DSignal dom (n + 1) (Unsigned 8)
 fontRom char row = delayedRom (fmap unpack . romFilePow2 "chargen.uf6.bin") $
     toAddr <$> char <*> row
   where
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
     toAddr char row = bitCoerce (char, row)
+
+infixl 3 .<|>.
+(.<|>.) :: (Applicative f, Alternative m) => f (m a) -> f (m a) -> f (m a)
+(.<|>.) = liftA2 (<|>)
+
+infix 2 .|>.
+(.|>.) :: (Applicative f) => f (Maybe a) -> f a -> f a
+fmx .|>. fy = fromMaybe <$> fy <*> fmx
+
+shiftOutL
+    :: (BitPack a, HiddenClockResetEnable dom)
+    => DSignal dom d (Maybe a)
+    -> DSignal dom d Bool
+    -> DSignal dom (d + 1) Bit
+shiftOutL load tick = fmap msb $ delayedRegister 0 $ \r -> muxA
+    [ fmap pack <$> load
+    , enable tick $ (`shiftL` 1) <$> r
+    ] .|>.
+    r
+
+shiftOutR
+    :: (BitPack a, HiddenClockResetEnable dom)
+    => DSignal dom d (Maybe a)
+    -> DSignal dom d Bool
+    -> DSignal dom (d + 1) Bit
+shiftOutR load tick = fmap lsb $ delayedRegister 0 $ \r -> muxA
+    [ fmap pack <$> load
+    , enable tick $ (`shiftR` 1) <$> r
+    ] .|>.
+    r
