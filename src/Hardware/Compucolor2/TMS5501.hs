@@ -75,7 +75,7 @@ tms5501
          , Signal dom (Maybe Value)
          )
        )
-tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, irq, int))
+tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, delay False irq, delay Nothing int))
   where
     (dataOut, bunbundle -> MkOutput{..}) = unbundle . mealyState step initS . bundle $ (cmd, tick, bbundle MkInput{..})
 
