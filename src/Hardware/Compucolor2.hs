@@ -30,22 +30,23 @@ topEntity = withEnableGen board
   where
     board ps2 = vga
       where
-        (crtOut, vidAddr, vidWrite, kbdRow) = mainBoard vidRead
+        (crtOut, vidAddr, vidWrite, kbdRow) = mainBoard frameEnd vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
-    => Signal dom (Maybe (Unsigned 8))
+    => Signal dom Bool
+    -> Signal dom (Maybe (Unsigned 8))
     -> ( Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        , Signal dom (Unsigned 8)
        )
-mainBoard vidRead = (cursor, vidAddr, vidWrite, kbdRow)
+mainBoard frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
-    (dataIn, (cursor, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
+    (dataIn, (crtOut, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
             ram <- ram0 (SNat @0x8000)
@@ -53,7 +54,7 @@ mainBoard vidRead = (cursor, vidAddr, vidWrite, kbdRow)
 
             -- TODO: how can we pattern match on tmsOut?
             (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure False) (pure 0x00) _interruptAck |]
-            (crt, crtOut) <- port @(Index 0x10) [| crt5027 (pure False) |]
+            (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
             override [|rst|]
@@ -75,13 +76,13 @@ mainBoard vidRead = (cursor, vidAddr, vidWrite, kbdRow)
 
 simBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
-    => Signal dom (Maybe (Unsigned 8))
-    -> ( Signal dom (Maybe (Bool, VidAddr))
-       , Signal dom (Maybe (Unsigned 8))
+    => "VID_READ"    ::: Signal dom (Maybe (Unsigned 8))
+    -> ( "VID_ADDR"  ::: Signal dom (Maybe (Bool, VidAddr))
+       , "VID_WRITE" ::: Signal dom (Maybe (Unsigned 8))
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard vidRead
+    (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard (pure False) vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40
@@ -89,9 +90,7 @@ simEntity
     -> ( "VID_ADDR"   ::: Signal Dom40 (Maybe (Bool, VidAddr))
        , "VID_WRITE"  ::: Signal Dom40 (Maybe (Unsigned 8))
        )
-simEntity = withResetEnableGen $ \vidRead ->
-  let (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard vidRead
-  in (vidAddr, vidWrite)
+simEntity = withResetEnableGen simBoard
 
 makeTopEntity 'topEntity
 makeTopEntity 'simEntity

@@ -46,11 +46,11 @@ crt5027
     -> ( Signal dom (Maybe (Unsigned 8))
        , Signals dom Output
        )
-crt5027 endFrame cmd = (dataOut, crtOut)
+crt5027 frameEnd cmd = (dataOut, crtOut)
   where
-    (dataOut, bunbundle -> crtOut) = unbundle . mealyState step initS . bundle $ (cmd, endFrame)
+    (dataOut, bunbundle -> crtOut) = unbundle . mealyState step initS . bundle $ (cmd, frameEnd)
 
-    step (cmd, endFrame) = do
+    step (cmd, frameEnd) = do
         for_ cmd $ \case
             WritePort 0xb y -> return () -- TODO: scrolling
             WritePort 0xc x -> cursorX .= x
@@ -60,6 +60,6 @@ crt5027 endFrame cmd = (dataOut, crtOut)
         y <- use cursorY
         blink <- uses cnt (< 30)
         let cursor = (x, y) <$ guard blink
-        when endFrame $ cnt %= prevIdx
+        when frameEnd $ cnt %= nextIdx
 
         return (Just 0x00, MkOutput{..})
