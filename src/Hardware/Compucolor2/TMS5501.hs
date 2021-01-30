@@ -21,9 +21,6 @@ import Data.Foldable (traverse_, for_)
 import Data.Traversable (for)
 import Data.Maybe
 import Control.Lens hiding (Index, (:>))
-
--- import Barbies
--- import Barbies.Bare
 import Barbies.TH
 
 type Port = Index 16

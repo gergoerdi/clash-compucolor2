@@ -8,7 +8,6 @@ import RetroClash.Utils
 import RetroClash.VGA
 import RetroClash.Video
 import RetroClash.Delayed
-import RetroClash.Clock
 import Hardware.Compucolor2.CRT5027
 
 import Control.Monad
