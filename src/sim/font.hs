@@ -3,6 +3,7 @@
 import Clash.Prelude hiding ((!), lift)
 
 import RetroClash.Sim.SDL
+import Hardware.Compucolor2.Sim (divI)
 
 import Data.Array.IO
 import Data.Array ((!))
@@ -12,14 +13,6 @@ import Control.Monad.Trans
 
 type FontWidth = 6
 type FontHeight = 8
-
-divI
-    :: (KnownNat n, KnownNat k, 1 <= k, n ~ ((n `Div` k) * k))
-    => SNat k
-    -> Index n
-    -> (Index (n `Div` k), Index k)
-divI k@SNat x = let (x1, x0) = x `quotRem` snatToNum k
-                in (fromIntegral x1, fromIntegral x0)
 
 main :: IO ()
 main = do
