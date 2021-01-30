@@ -174,7 +174,7 @@ getStatus = do
       False :>      -- TODO: UART start bit detected
       False :>      -- TODO: UART first data bit detected
       intPending :>
-      False :>      -- TODO: UART transmitter buffer empty
+      True :>       -- TODO: UART ready to transmit
       False :>      -- TODO: UART receiver buffer loaded
       True :>       -- TODO: UART receiver line monitor
       False :>      -- TODO: UART overrun -- TODO: reset on getStatus
