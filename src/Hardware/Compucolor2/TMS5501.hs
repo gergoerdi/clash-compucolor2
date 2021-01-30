@@ -65,7 +65,7 @@ declareBareB [d|
 
 tms5501
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
-    => Signal dom Bool
+    => Signal dom Bit
     -> Signal dom Value
     -> Signal dom Bool
     -> Signal dom (Maybe (PortCommand Port Value))
@@ -81,7 +81,7 @@ tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, irq, int))
 
     tick = risePeriod (SNat @(Microseconds 8))
 
-    senseTrigger = isRising False sense
+    senseTrigger = isRising low sense
     inputTrigger = isRising low $ msb <$> parallelIn
 
     step (cmd, tick, inp@MkInput{..}) = do

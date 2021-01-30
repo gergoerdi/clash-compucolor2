@@ -53,7 +53,7 @@ mainBoard frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
-            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure False) (pure 0x00) _interruptAck |]
+            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure low) (pure 0x00) _interruptAck |]
             (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
