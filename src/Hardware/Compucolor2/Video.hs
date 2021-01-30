@@ -13,7 +13,7 @@ import RetroClash.Barbies
 import Hardware.Compucolor2.CRT5027 as CRT5027
 
 import Control.Monad
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromMaybe)
 
 type FontWidth = 6
 type FontHeight = 8
@@ -44,33 +44,22 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @6) . fst . scale (SNat @2) . center $ vgaX
     (fromSignal -> textY, fromSignal -> glyphY) = scale (SNat @8) . fst . scale (SNat @2) . center $ vgaY
 
-    isCursor = do
-        cursor <- fromSignal cursor
-        x <- textX
-        y <- textY
-        pure $ case liftA3 (,,) cursor x y of
-            Just ((cx, cy), x, y) -> fromIntegral x == cx && fromIntegral y == cy
-            _ -> False
-
     frameEnd = liftD (isFalling False) (isJust <$> textY)
 
-    rgb = do
+    newChar = liftD (isRising False) $ glyphX .== Just 0
+
+    charAddr = do
         x <- textX
         y <- textY
-        cursor <- isCursor
-        pure $ case liftA2 (,) x y of
-            Just (x, y) ->
-                let x' = fromIntegral @(Index TextWidth) x
-                    y' = fromIntegral @(Index TextHeight) y
-                in if cursor then (maxBound, maxBound, maxBound) else (x' `shiftL` 2, y' `shiftL` 3, 0)
-            _ -> (minBound, minBound, minBound)
-
-    intAddr = pure Nothing
+        newChar <- newChar
+        pure $ case (x, y, newChar) of
+            (Just x, Just y, True) -> Just $ bitCoerce (y, x, (0 :: Index 2))
+            _ -> Nothing
 
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr
-    extRead1 :> vidRead :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle) $
+    extRead1 :> charLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle) $
         extAddr1 `withWrite` extWrite :>
-        noWrite intAddr :>
+        noWrite charAddr :>
         extAddr2 `withWrite` extWrite :>
         Nil
       where
@@ -78,6 +67,44 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
 
     extRead = mplus <$> extRead1 <*> extRead2
 
+    -- TODO: why do we need the type annotation on `isChar`, when
+    -- `glyphLoad`'s def should constrain it to `Bool`?
+    (isChar, glyphAddr) = D.unbundle $ bitCoerce @_ @(Bool, _) . fromMaybe 0 <$> charLoad
+
+    glyphLoad = mux (delayI False isChar)
+        (fontRom glyphAddr (fromMaybe 0 <$> delayI Nothing glyphY))
+        (pure 0x00) -- TODO: get glyph data from char itself
+    newCol = liftD (changed Nothing) glyphX
+    glyphRow = delayedRegister 0x00 $ \glyphRow ->
+      mux (delayI False newChar) glyphLoad $
+      mux (delayI False newCol) ((`shiftL` 1) <$> glyphRow) $
+      glyphRow
+
+    rgb = do
+        x <- delayI Nothing textX
+        y <- delayI Nothing textY
+        cursor <- delayI Nothing $ fromSignal cursor
+        pixel <- bitToBool . msb <$> glyphRow
+
+        pure $ case liftA2 (,) x y of
+            Nothing -> (0x30, 0x30, 0x30)
+            Just (x, y) -> if pixel `xor` isCursor then (maxBound, maxBound, maxBound) else (minBound, minBound, minBound)
+              where
+                isCursor = cursor == Just (x', y')
+                x' = fromIntegral @(Index TextWidth) x
+                y' = fromIntegral @(Index TextHeight) y
+
 unbraid :: Maybe (Bool, a) -> (Maybe a, Maybe a)
 unbraid Nothing = (Nothing, Nothing)
 unbraid (Just (first, x)) = if first then (Just x, Nothing) else (Nothing, Just x)
+
+fontRom
+    :: (HiddenClockResetEnable dom)
+    => DSignal dom n (Unsigned 7)
+    -> DSignal dom n (Index FontHeight)
+    -> DSignal dom (n + 1) (Unsigned 8) -- (Unsigned FontWidth)
+fontRom char row = delayedRom (fmap unpack . romFilePow2 "chargen.uf6.bin") $
+    toAddr <$> char <*> row
+  where
+    toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
+    toAddr char row = bitCoerce (char, row)
