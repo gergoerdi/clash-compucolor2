@@ -8,7 +8,9 @@ import RetroClash.Utils
 import RetroClash.VGA
 import RetroClash.Video
 import RetroClash.Delayed
-import Hardware.Compucolor2.CRT5027
+import RetroClash.Barbies
+
+import Hardware.Compucolor2.CRT5027 as CRT5027
 
 import Control.Monad
 import Data.Maybe (isJust)
@@ -24,14 +26,14 @@ createDomain vSystem{vName="Dom40", vPeriod = hzToPeriod 40_000_000}
 
 video
     :: (HiddenClockResetEnable Dom40)
-    => CRTOut Dom40
+    => Signals Dom40 CRT5027.Output
     -> Signal Dom40 (Maybe (Bool, VidAddr))
     -> Signal Dom40 (Maybe (Unsigned 8))
     -> ( VGAOut Dom40 8 8 8
        , Signal Dom40 Bool
        , Signal Dom40 (Maybe (Unsigned 8))
        )
-video CRTOut{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> extWrite) =
+video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> extWrite) =
     ( delayVGA vgaSync rgb
     , toSignal $ delayI False frameEnd <* rgb
     , toSignal extRead
@@ -42,12 +44,26 @@ video CRTOut{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> extWrite) =
     (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @6) . fst . scale (SNat @2) . center $ vgaX
     (fromSignal -> textY, fromSignal -> glyphY) = scale (SNat @8) . fst . scale (SNat @2) . center $ vgaY
 
+    isCursor = do
+        cursor <- fromSignal cursor
+        x <- textX
+        y <- textY
+        pure $ case liftA3 (,,) cursor x y of
+            Just ((cx, cy), x, y) -> fromIntegral x == cx && fromIntegral y == cy
+            _ -> False
+
     frameEnd = liftD (isFalling False) (isJust <$> textY)
 
     rgb = do
-        x <- maybe @_ @(Index TextWidth) 0 fromIntegral <$> textX
-        y <- maybe @_ @(Index TextHeight) 0 fromIntegral <$> textY
-        pure $ (x `shiftL` 2, y `shiftL` 3, 0)
+        x <- textX
+        y <- textY
+        cursor <- isCursor
+        pure $ case liftA2 (,) x y of
+            Just (x, y) ->
+                let x' = fromIntegral @(Index TextWidth) x
+                    y' = fromIntegral @(Index TextHeight) y
+                in if cursor then (maxBound, maxBound, maxBound) else (x' `shiftL` 2, y' `shiftL` 3, 0)
+            _ -> (minBound, minBound, minBound)
 
     intAddr = pure Nothing
 

@@ -10,7 +10,7 @@ import Clash.Prelude
 import Clash.Annotations.TH
 
 import Hardware.Compucolor2.TMS5501 as TMS5501
-import Hardware.Compucolor2.CRT5027
+import Hardware.Compucolor2.CRT5027 as CRT5027
 import Hardware.Compucolor2.Video
 import Hardware.Intel8080.CPU
 
@@ -36,16 +36,16 @@ topEntity = withEnableGen board
 mainBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom (Maybe (Unsigned 8))
-    -> ( CRTOut dom
+    -> ( Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        , Signal dom (Unsigned 8)
        )
-mainBoard vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
+mainBoard vidRead = (cursor, vidAddr, vidWrite, kbdRow)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
-    (dataIn, (crtOut, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
+    (dataIn, (cursor, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
             ram <- ram0 (SNat @0x8000)
