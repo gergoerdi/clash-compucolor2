@@ -56,10 +56,14 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
             (Just x, Just y, True) -> Just $ bitCoerce (y, x, (0 :: Index 2))
             _ -> Nothing
 
+    attrAddr = fmap (+ 1) <$> (delayN d1 Nothing . antiDelay d1 . delayN d1 Nothing $ charAddr)
+
+    intAddr = muxA [delayI Nothing charAddr, attrAddr]
+
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr
     extRead1 :> intLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle) $
         extAddr1 `withWrite` extWrite :>
-        noWrite charAddr :>
+        noWrite intAddr :>
         extAddr2 `withWrite` extWrite :>
         Nil
       where
@@ -70,6 +74,9 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     charLoad = guardA (isJust <$> delayI Nothing charAddr) intLoad
     (isTall, glyphAddr) = D.unbundle $ bitCoerce . fromMaybe 0 <$> charLoad
 
+    attrLoad = guardA (isJust <$> delayI Nothing attrAddr) intLoad
+    attr = delayedRegister 0x00 $ \attr -> fromMaybe <$> attr <*> attrLoad
+    (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, Bool, Unsigned 3, Unsigned 3) <$> attr
 
     glyphY' = do
         y <- fromMaybe 0 <$> delayI Nothing glyphY
@@ -79,7 +86,9 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
                in if isTall then y' else y
 
     glyphLoad = enable (delayI False $ isJust <$> charLoad) $
-        (fontRom glyphAddr glyphY')
+        mux (delayI False isPlot)
+          (pure 0x00) -- TODO: get glyph data from char itself
+          (fontRom glyphAddr glyphY')
     newCol = liftD (changed Nothing) glyphX
 
     pixel = liftD2 shifterL glyphLoad (delayI False newCol)
@@ -89,14 +98,22 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         y <- delayI Nothing textY
         cursor <- delayI Nothing $ fromSignal cursor
         pixel <- bitToBool <$> pixel
+        fore <- delayI 0 fore
+        back <- delayI 0 back
 
         pure $ case liftA2 (,) x y of
             Nothing -> (0x30, 0x30, 0x30)
-            Just (x, y) -> if pixel `xor` isCursor then (maxBound, maxBound, maxBound) else (minBound, minBound, minBound)
+            Just (x, y) -> fromBGR $ if pixel `xor` isCursor then fore else back
               where
                 isCursor = cursor == Just (x', y')
                 x' = fromIntegral @(Index TextWidth) x
                 y' = fromIntegral @(Index TextHeight) y
+
+fromBGR :: (Bounded r, Bounded g, Bounded b) => Unsigned 3 -> (r, g, b)
+fromBGR (bitCoerce -> (b, g, r)) = (stretch r, stretch g, stretch b)
+  where
+    stretch False = minBound
+    stretch True = maxBound
 
 unbraid :: Maybe (Bool, a) -> (Maybe a, Maybe a)
 unbraid Nothing = (Nothing, Nothing)
