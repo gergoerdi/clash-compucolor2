@@ -82,7 +82,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         (fontRom glyphAddr glyphY')
     newCol = liftD (changed Nothing) glyphX
 
-    pixel = shiftOutL glyphLoad (delayI False newCol)
+    pixel = liftD2 shifterL glyphLoad (delayI False newCol)
 
     rgb = do
         x <- delayI Nothing textX
@@ -113,32 +113,3 @@ fontRom char row = delayedRom (fmap unpack . romFilePow2 "chargen.uf6.bin") $
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
     toAddr char row = bitCoerce (char, row)
 
-infixl 3 .<|>.
-(.<|>.) :: (Applicative f, Alternative m) => f (m a) -> f (m a) -> f (m a)
-(.<|>.) = liftA2 (<|>)
-
-infix 2 .|>.
-(.|>.) :: (Applicative f) => f (Maybe a) -> f a -> f a
-fmx .|>. fy = fromMaybe <$> fy <*> fmx
-
-shiftOutL
-    :: (BitPack a, HiddenClockResetEnable dom)
-    => DSignal dom d (Maybe a)
-    -> DSignal dom d Bool
-    -> DSignal dom (d + 1) Bit
-shiftOutL load tick = fmap msb $ delayedRegister 0 $ \r -> muxA
-    [ fmap pack <$> load
-    , enable tick $ (`shiftL` 1) <$> r
-    ] .|>.
-    r
-
-shiftOutR
-    :: (BitPack a, HiddenClockResetEnable dom)
-    => DSignal dom d (Maybe a)
-    -> DSignal dom d Bool
-    -> DSignal dom (d + 1) Bit
-shiftOutR load tick = fmap lsb $ delayedRegister 0 $ \r -> muxA
-    [ fmap pack <$> load
-    , enable tick $ (`shiftR` 1) <$> r
-    ] .|>.
-    r
