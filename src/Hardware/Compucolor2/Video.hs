@@ -57,7 +57,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
             _ -> Nothing
 
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr
-    extRead1 :> charLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle) $
+    extRead1 :> intLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle) $
         extAddr1 `withWrite` extWrite :>
         noWrite charAddr :>
         extAddr2 `withWrite` extWrite :>
@@ -67,14 +67,19 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
 
     extRead = mplus <$> extRead1 <*> extRead2
 
-    -- TODO: why do we need the type annotation on `isChar`, when
-    -- `glyphLoad`'s def should constrain it to `Bool`?
-    (isChar, glyphAddr) = D.unbundle $ bitCoerce @_ @(Bool, _) . fromMaybe 0 <$> charLoad
+    charLoad = guardA (isJust <$> delayI Nothing charAddr) intLoad
+    (isTall, glyphAddr) = D.unbundle $ bitCoerce . fromMaybe 0 <$> charLoad
+
+
+    glyphY' = do
+        y <- fromMaybe 0 <$> delayI Nothing glyphY
+        ty <- fromMaybe 0 <$> delayI Nothing textY
+        isTall <- isTall
+        pure $ let y' = y `shiftR` 1 + if odd ty then 4 else 0
+               in if isTall then y' else y
 
     glyphLoad = enable (delayI False $ isJust <$> charLoad) $
-        mux (delayI False isChar)
-          (fontRom glyphAddr (fromMaybe 0 <$> delayI Nothing glyphY))
-          (pure 0x00) -- TODO: get glyph data from char itself
+        (fontRom glyphAddr glyphY')
     newCol = liftD (changed Nothing) glyphX
 
     pixel = shiftOutL glyphLoad (delayI False newCol)
