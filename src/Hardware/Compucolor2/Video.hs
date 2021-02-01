@@ -61,13 +61,13 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     intAddr = muxA [delayI Nothing charAddr, attrAddr]
 
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr
-    extRead1 :> intLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle) $
+    extRead1 :> intLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle . fmap (fromMaybe (0, Nothing))) $
         extAddr1 `withWrite` extWrite :>
         noWrite intAddr :>
         extAddr2 `withWrite` extWrite :>
         Nil
       where
-        ram (addr, wr) = delayedRam (blockRamU ClearOnReset (SNat @VidSize) (const 0)) addr (packWrite <$> addr <*> wr)
+        ram (addr, wr) = delayedRam (blockRam1 NoClearOnReset (SNat @VidSize) 0) addr (packWrite <$> addr <*> wr)
 
     extRead = mplus <$> extRead1 <*> extRead2
 
