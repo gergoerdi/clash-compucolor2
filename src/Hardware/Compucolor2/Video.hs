@@ -48,17 +48,19 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
 
     newChar = liftD (isRising False) $ glyphX .== Just 0
 
-    charAddr = do
-        x <- textX
-        y <- textY
-        newChar <- newChar
-        pure $ case (x, y, newChar) of
-            (Just x, Just y, True) -> Just $ bitCoerce (y, x, (0 :: Index 2))
-            _ -> Nothing
+    (charAddr, attrAddr) = (redelayI charAddr0, fmap (+1) <$> charAddr1)
+      where
+        charAddr0 = do
+            x <- textX
+            y <- textY
+            newChar <- newChar
+            pure $ case (x, y, newChar) of
+                (Just x, Just y, True) -> Just $ bitCoerce (y, x, (0 :: Index 2))
+                _ -> Nothing
 
-    attrAddr = fmap (+ 1) <$> (delayN d1 Nothing . antiDelay d1 . delayN d1 Nothing $ charAddr)
+        charAddr1 = delayN (SNat @1) Nothing charAddr0
 
-    intAddr = muxA [delayI Nothing charAddr, attrAddr]
+    intAddr = muxA [charAddr, attrAddr]
 
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr
     extRead1 :> intLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle . fmap (fromMaybe (0, Nothing))) $
@@ -129,3 +131,9 @@ fontRom char row = delayedRom (fmap unpack . romFilePow2 "_build/chargen.uf6.bin
   where
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
     toAddr char row = bitCoerce (char, row)
+
+redelayI :: (KnownNat k, HiddenClockResetEnable dom) => DSignal dom d a -> DSignal dom (d+k) a
+redelayI = unsafeFromSignal . toSignal
+
+redelayN :: (HiddenClockResetEnable dom) => SNat k -> DSignal dom d a -> DSignal dom (d+k) a
+redelayN SNat = redelayI
