@@ -77,19 +77,19 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     (isTall, glyphAddr) = D.unbundle $ bitCoerce . fromMaybe 0 <$> charLoad
 
     attrLoad = guardA (isJust <$> delayI Nothing attrAddr) intLoad
-    attr = delayedRegister 0x00 $ \attr -> fromMaybe <$> attr <*> attrLoad
+    attr = delayedRegister 0x00 (attrLoad .|>.)
     (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, Bool, Unsigned 3, Unsigned 3) <$> attr
 
     glyphY' = do
-        y <- fromMaybe 0 <$> delayI Nothing glyphY
-        ty <- fromMaybe 0 <$> delayI Nothing textY
+        y <- delayI Nothing glyphY .|>. 0
+        ty <- delayI Nothing textY .|>. 0
         isTall <- isTall
         pure $ let y' = y `shiftR` 1 + if odd ty then 4 else 0
                in if isTall then y' else y
 
     glyphLoad = enable (delayI False $ isJust <$> charLoad) $
         mux (delayI False isPlot)
-          (pure 0x00) -- TODO: get glyph data from char itself
+          (fontRom glyphAddr glyphY') -- TODO: get glyph data from char itself
           (fontRom glyphAddr glyphY')
     newCol = liftD (changed Nothing) glyphX
 
