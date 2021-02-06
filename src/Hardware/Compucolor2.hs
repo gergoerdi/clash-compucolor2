@@ -52,14 +52,14 @@ mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
 
     kbdCols = keyboard scanCode kbdRow
 
-    (dataIn, (crtOut, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
+    (dataIn, (crtOut@CRT5027.MkOutput{..}, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
             ram <- ram0 (SNat @0x8000)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
-            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure low) kbdCols _interruptAck |]
+            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 blink kbdCols _interruptAck |]
             (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 

@@ -35,6 +35,7 @@ initS = MkS
 declareBareB [d|
   data Output = MkOutput
       { cursor :: Maybe (Unsigned 8, Unsigned 8)
+      , blink :: Bool
       } |]
 
 crt5027
@@ -46,11 +47,12 @@ crt5027
        )
 crt5027 frameEnd cmd = (dataOut, crtOut)
   where
-    blink = oscillateWhen True $ riseEveryWhen (SNat @32) frameEnd
+    blink = riseEveryWhen (SNat @32) frameEnd
+    blinkState = oscillateWhen True blink
 
-    (dataOut, bunbundle -> crtOut) = unbundle . mealyState step initS . bundle $ (cmd, blink)
+    (dataOut, bunbundle -> crtOut) = unbundle . mealyState step initS . bundle $ (cmd, blink, blinkState)
 
-    step (cmd, blink) = do
+    step (cmd, blink, blinkState) = do
         for_ cmd $ \case
             WritePort 0xb y -> return () -- TODO: scrolling
             WritePort 0xc x -> cursorX .= x
@@ -58,6 +60,6 @@ crt5027 frameEnd cmd = (dataOut, crtOut)
 
         x <- use cursorX
         y <- use cursorY
-        let cursor = (x, y) <$ guard blink
+        let cursor = (x, y) <$ guard blinkState
 
         return (Just 0x00, MkOutput{..})
