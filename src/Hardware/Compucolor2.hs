@@ -11,6 +11,7 @@ import Clash.Annotations.TH
 
 import Hardware.Compucolor2.TMS5501 as TMS5501
 import Hardware.Compucolor2.CRT5027 as CRT5027
+import Hardware.Compucolor2.Keyboard
 import Hardware.Compucolor2.Video
 import Hardware.Intel8080.CPU
 
@@ -30,21 +31,26 @@ topEntity = withEnableGen board
   where
     board ps2 = vga
       where
-        (crtOut, vidAddr, vidWrite, kbdRow) = mainBoard frameEnd vidRead
+        scanCode = parseScanCode . decodePS2 . samplePS2 $ ps2
+
+        (crtOut, vidAddr, vidWrite, kbdRow) = mainBoard scanCode frameEnd vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
-    => Signal dom Bool
+    => Signal dom (Maybe ScanCode)
+    -> Signal dom Bool
     -> Signal dom (Maybe (Unsigned 8))
     -> ( Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        , Signal dom (Unsigned 8)
        )
-mainBoard frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
+mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
   where
     CPUOut{..} = intel8080 CPUIn{..}
+
+    kbdCols = keyboard scanCode kbdRow
 
     (dataIn, (crtOut, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
@@ -53,7 +59,7 @@ mainBoard frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
-            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure low) (pure 0x00) _interruptAck |]
+            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 (pure low) kbdCols _interruptAck |]
             (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
@@ -82,7 +88,7 @@ simBoard
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard (pure False) vidRead
+    (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard (pure Nothing) (pure False) vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40
