@@ -18,7 +18,6 @@ import Hardware.Intel8080.Interruptor (rst)
 
 import Control.Monad.State
 import Data.Foldable (traverse_, for_)
-import Data.Traversable (for)
 import Data.Maybe
 import Control.Lens hiding (Index, (:>))
 import Barbies.TH
@@ -139,7 +138,7 @@ countdown tick = do
                 when tick $ tickScaler .= Just (prevIdx cnt)
                 return $ tick && cnt == 0
 
-    when tick' $ forM_ [0..4] $ \(fromIntegral -> i) -> do
+    when tick' $ for_ [0..4] $ \(fromIntegral -> i) -> do
         count <- uses timers (!! i)
         traverse_ (setTimer i) (predIdx count)
 

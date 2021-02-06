@@ -20,7 +20,6 @@ import RetroClash.VGA
 import RetroClash.PS2
 import RetroClash.Memory
 import RetroClash.Barbies
-import Data.Maybe
 
 topEntity
     :: "CLK_40MHZ" ::: Clock Dom40
