@@ -88,17 +88,18 @@ tms5501 sense parallelIn ack cmd = (dataOut, (parallelOut, delay False irq, dela
         handleInput inputTrigger
         countdown tick
 
-        pending <- getPending
-        let irq = isJust pending
-
         (int, dataOut) <- do
             shouldAck <- use enableAck
             if shouldAck && ack then do
+                pending <- getPending
                 traverse_ clearPending pending
                 return (Just $ toRST pending, Nothing)
               else do
                 dataOut <- exec inp tick cmd
                 return (Nothing, Just dataOut)
+
+        -- This is after handling the `ack`, since it could have cleared the previously pending irq
+        irq <- isJust <$> getPending
 
         parallelOut <- complement <$> use parallelBuf
         return (dataOut, MkOutput{..})
@@ -163,8 +164,7 @@ setTimer i newCount = do
             1 -> Just 1
             2 -> Just 3
             3 -> Just 6
-            4 | enableTimer4 -> Just 7
-            _ -> Nothing
+            4 -> guard (enableTimer4) >> Just 7
 
 getStatus :: State S Value
 getStatus = do
