@@ -13,14 +13,10 @@ keyboard
 keyboard sc selector = complement <$> mux includeMods (withMods <$> mods <*> cols) cols
   where
     keys = keyboardState sc
-
-    row :: Signal dom (Unsigned 4)
-    row = truncateB <$> selector
+    row = truncateB <$> selector :: Signal dom (Unsigned 4)
+    cols = keys .!!. row
 
     includeMods = not . (`testBit` 7) <$> selector
-
-    cols :: Signal dom (Unsigned 8)
-    cols = (!!) <$> keys <*> row
 
     mods :: Signal dom (BitVector 4)
     mods = fmap pack . bundle $ capsLock :> rpt :> shift :> ctrl :> Nil
