@@ -13,6 +13,7 @@ import Hardware.Compucolor2.TMS5501 as TMS5501
 import Hardware.Compucolor2.CRT5027 as CRT5027
 import Hardware.Compucolor2.Keyboard
 import Hardware.Compucolor2.Video
+import Hardware.Compucolor2.FloppyDrive
 import Hardware.Intel8080.CPU
 
 import RetroClash.Utils
@@ -32,7 +33,7 @@ topEntity = withEnableGen board
       where
         scanCode = parseScanCode . decodePS2 . samplePS2 $ ps2
 
-        (crtOut, vidAddr, vidWrite, kbdRow) = mainBoard scanCode frameEnd vidRead
+        (crtOut, vidAddr, vidWrite) = mainBoard scanCode frameEnd vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
@@ -43,22 +44,27 @@ mainBoard
     -> ( Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
-       , Signal dom (Unsigned 8)
        )
-mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite, kbdRow)
+mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
-    kbdCols = keyboard scanCode kbdRow
+    kbdCols = keyboard scanCode parOut
 
-    (dataIn, (crtOut@CRT5027.MkOutput{..}, (vidAddr, vidWrite), (kbdRow, interruptRequest, rst))) =
+    rdFloppy = register low $ floppyDrive sel phase wr
+      where
+        sel = (`testBit` 4) <$> parOut
+        wr = pure Nothing
+        phase = pure 0
+
+    (dataIn, (crtOut@CRT5027.MkOutput{..}, (vidAddr, vidWrite), (parOut, wrFloppy, interruptRequest, rst))) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
             ram <- ram0 (SNat @0x8000)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
-            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 blink kbdCols _interruptAck |]
+            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 blink kbdCols rdFloppy _interruptAck |]
             (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
@@ -87,7 +93,7 @@ simBoard
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_crtOut, vidAddr, vidWrite, kbdRow) = mainBoard (pure Nothing) (pure False) vidRead
+    (_crtOut, vidAddr, vidWrite) = mainBoard (pure Nothing) (pure False) vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40
