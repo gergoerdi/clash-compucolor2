@@ -44,6 +44,7 @@ dependencies:
   - barbies
   - barbies-th
   - tuple
+  - split
   - extra
 
 # Anything that Clash uses by default should go here
