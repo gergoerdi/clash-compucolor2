@@ -37,11 +37,11 @@ floppyDrive sel phase wr = rd
 
                 _ -> Nothing
 
-    addr = regMaybe (0 :: Index 30720) $ enable tick $ nextIdx <$> addr
+    addr = regMaybe (0 :: Index 15360) $ enable tick $ nextIdx <$> addr
 
     -- mems :: Vec 41 (Signal dom Bit)
     -- mems = map (\i -> unpack <$> blockRamFile (SNat @30720) (printf "_build/disk-%02d.bin" i) addr (pure Nothing)) indicesI
 
     -- rd = bundle mems .!!. track
 
-    rd = unpack <$> blockRamFile (SNat @30720) ("_build/disk/01.track") addr (pure Nothing)
+    rd = unpack <$> blockRamFile (SNat @15360) ("_build/disk/01.track") addr (pure Nothing)
