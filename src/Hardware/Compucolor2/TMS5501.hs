@@ -35,14 +35,9 @@ data S = MkS
     , _enableInputTrigger :: Bool
     , _enableAck :: Bool
     , _tickScaler :: Maybe (Index 8)
-    , _rxState :: RxState 8
     , _rxBuf :: Unsigned 8
-    , _rxStart :: Bool
-    , _rxData :: Bool
     , _rxReady :: Bool
     , _rxOverrun :: Bool
-    , _rxFrameError :: Bool
-    , _txState :: TxState 8
     , _txBuf :: Maybe (Unsigned 8)
     }
     deriving (Show, Generic, NFDataX)
@@ -57,15 +52,29 @@ initS = MkS
     , _enableInputTrigger = False
     , _enableAck = True
     , _tickScaler = Just maxBound
-    , _rxState = RxIdle
     , _rxBuf = 0x00
-    , _rxStart = False
-    , _rxData = False
     , _rxReady = False
     , _rxOverrun = False
-    , _rxFrameError = False
-    , _txState = TxIdle
     , _txBuf = Nothing
+    }
+
+data UART = MkUART
+    { _txState :: TxState 8
+    , _rxState :: RxState 8
+    , _rxStart :: Bool
+    , _rxData :: Bool
+    , _rxFrameError :: Bool
+    }
+    deriving (Show, Generic, NFDataX)
+makeLenses ''UART
+
+initUART :: UART
+initUART = MkUART
+    { _txState = TxIdle
+    , _rxState = RxIdle
+    , _rxStart = False
+    , _rxData = False
+    , _rxFrameError = False
     }
 
 declareBareB [d|
@@ -74,13 +83,16 @@ declareBareB [d|
       , inputTrigger :: Bool
       , parallelIn :: Value
       , serialIn :: Bit
+      , txReady :: Bool
+      , rxResult :: Maybe (Unsigned 8)
+      , rxInfo :: (Bool, Bool, Bool)
       , ack :: Bool
       } |]
 
 declareBareB [d|
   data Output = MkOutput
       { parallelOut :: Value
-      , serialOut :: Bit
+      , txNew :: Maybe (Unsigned 8)
       , irq :: Bool
       , int :: Maybe Value
       } |]
@@ -101,12 +113,14 @@ tms5501
        )
 tms5501 sense parallelIn serialIn ack cmd = (dataOut, (parallelOut, serialOut, delay False irq, delay Nothing int))
   where
-    (dataOut, bunbundle -> MkOutput{..}) = unbundle . mealyState step initS . bundle $ (cmd, tick, bbundle MkInput{..})
+    (dataOut, bunbundle -> MkOutput{..}) = mealyStateB step initS (cmd, tick, bbundle MkInput{..})
 
     tick = risePeriod (SNat @(Microseconds 8))
 
     senseTrigger = isRising False sense
     inputTrigger = isRising low $ msb <$> parallelIn
+
+    (serialOut, txReady, rxResult, rxInfo) = mealyStateB uart initUART (serialIn, txNew)
 
     step (cmd, tick, inp@MkInput{..}) = do
         when senseTrigger $ setInt 2
@@ -115,24 +129,17 @@ tms5501 sense parallelIn serialIn ack cmd = (dataOut, (parallelOut, serialOut, d
             when enabled $ setInt 7
         countdown tick
 
-        -- TODO: calculate bitDuration from clock, aiming for 20 * 8 * 9600 bps
-        -- TODO: 4166 => 9600 bps
-        -- TODO: 26 => 20*8*9600 bps
-        let bitDuration = 26
-        newTx <- fmap pack <$> use txBuf
+        txNew <- use txBuf
 
-        (serialOut, txReady) <- zoom txState $ txStep bitDuration newTx
         when txReady $ do
             whenM (isJust <$> use txBuf) $ setInt 3
             txBuf .= Nothing
 
-        rxResult <- zoom rxState $ rxStep bitDuration serialIn
-        updateRxState
         for_ rxResult $ \x -> do
             whenM (use rxReady) $ rxOverrun .= True
             setInt 4
             rxReady .= True
-            rxBuf .= unpack x
+            rxBuf .= x
 
         (int, dataOut) <- do
             shouldAck <- use enableAck
@@ -141,7 +148,7 @@ tms5501 sense parallelIn serialIn ack cmd = (dataOut, (parallelOut, serialOut, d
                 traverse_ clearPending pending
                 return (Just $ toRST pending, Nothing)
               else do
-                dataOut <- exec inp tick txReady cmd
+                dataOut <- exec inp tick cmd
                 return (Nothing, Just dataOut)
 
         -- This is after handling the `ack`, since it could have cleared the previously pending irq
@@ -150,8 +157,37 @@ tms5501 sense parallelIn serialIn ack cmd = (dataOut, (parallelOut, serialOut, d
         parallelOut <- complement <$> use parallelBuf
         return (dataOut, MkOutput{..})
 
-exec :: Pure Input -> Bool -> Bool -> Maybe (PortCommand Port Value) -> State S Value
-exec MkInput{..} tick txReady cmd = case cmd of
+uart :: (Bit, Maybe (Unsigned 8)) -> State UART (Bit, Bool, Maybe (Unsigned 8), (Bool, Bool, Bool))
+uart (serialIn, newTx) = do
+    -- TODO: calculate bitDuration from clock, aiming for 20 * 8 * 9600 bps
+    -- TODO: 4166 => 9600 bps
+    -- TODO: 26 => 20*8*9600 bps
+    let bitDuration = 26
+    (serialOut, txReady) <- zoom txState $ txStep bitDuration (pack <$> newTx)
+    rxResult <- zoom rxState $ rxStep bitDuration serialIn
+    rxInfo <- updateRxState
+    return (serialOut, txReady, unpack <$> rxResult, rxInfo)
+
+updateRxState :: State UART (Bool, Bool, Bool)
+updateRxState = do
+    use rxState >>= \case
+        RxBit _ (Just 1) Rx.StartBit{} -> do
+            rxStart .= True
+        RxBit _ (Just _) Rx.DataBit{} -> do
+            rxData .= True
+        RxBit _ (Just sample) Rx.StopBit{} -> do
+            rxStart .= False
+            rxData .= False
+            rxFrameError .= not (sample == high)
+        _ -> return ()
+
+    rxStart <- use rxStart
+    rxData <- use rxData
+    rxFrameError <- use rxFrameError
+    return (rxStart, rxData, rxFrameError)
+
+exec :: Pure Input -> Bool -> Maybe (PortCommand Port Value) -> State S Value
+exec inp@MkInput{..} tick cmd = case cmd of
     Just (ReadPort 0x0) -> do
         rxReady .= False
         use rxBuf
@@ -160,7 +196,7 @@ exec MkInput{..} tick txReady cmd = case cmd of
         pending <- getPending
         traverse_ clearPending pending
         return $ toRST pending
-    Just (ReadPort 0x3) -> getStatus serialIn txReady
+    Just (ReadPort 0x3) -> getStatus inp
 
     Just (WritePort port x) -> (*> return 0x00) $ case port of
         0x4 -> execDiscrete x
@@ -206,26 +242,12 @@ setTimer i newCount = do
             3 -> Just 6
             4 -> guard (enableTimer4) >> Just 7
 
-updateRxState :: State S ()
-updateRxState = use rxState >>= \case
-    RxBit _ (Just 1) Rx.StartBit{} -> do
-        rxStart .= True
-    RxBit _ (Just _) Rx.DataBit{} -> do
-        rxData .= True
-    RxBit _ (Just sample) Rx.StopBit{} -> do
-        rxStart .= False
-        rxData .= False
-        rxFrameError .= not (sample == high)
-    _ -> return ()
-
-getStatus :: Bit -> Bool -> State S Value
-getStatus serialIn txReady = do
+getStatus :: Pure Input -> State S Value
+getStatus MkInput{..} = do
     intPending <- isJust <$> getPending
     rxReady <- use rxReady
-    rxStart <- use rxStart
-    rxData <- use rxData
     rxOverrun <- use rxOverrun <* (rxOverrun .= False)
-    rxFrameError <- use rxFrameError
+    let (rxStart, rxData, rxFrameError) = rxInfo
 
     return $ bitCoerce $
       rxStart :>
@@ -269,12 +291,12 @@ execDiscrete cmd = do
         intBuf .= 0b0001_0000
         timers .= repeat 0
 
-        rxStart .= False
-        rxData .= False
+        -- rxStart .= False
+        -- rxData .= False
+        -- txState .= TxIdle
         rxReady .= False
         rxOverrun .= False
 
-        txState .= TxIdle
-
     break = do
-        txState .= TxIdle
+        -- txState .= TxIdle
+        return ()
