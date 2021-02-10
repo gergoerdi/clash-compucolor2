@@ -10,7 +10,7 @@ keyboard
     => Signal dom (Maybe ScanCode)
     -> Signal dom (Unsigned 8)
     -> Signal dom (Unsigned 8)
-keyboard sc selector = complement <$> mux includeMods (withMods <$> mods <*> cols) cols
+keyboard sc selector = register 0 $ complement <$> mux includeMods (withMods <$> mods <*> cols) cols
   where
     keys = keyboardState sc
     row = truncateB <$> selector :: Signal dom (Unsigned 4)
