@@ -57,6 +57,7 @@ crt5027 frameEnd cmd = (dataOut, crtOut)
             WritePort 0xb y -> return () -- TODO: scrolling
             WritePort 0xc x -> cursorX .= x
             WritePort 0xd y -> cursorY .= y
+            _ -> return ()
 
         x <- use cursorX
         y <- use cursorY
