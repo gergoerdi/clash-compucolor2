@@ -205,7 +205,7 @@ clearPending i = do
 
 execDiscrete :: Value -> State S ()
 execDiscrete cmd = do
-    unless (cmd `testBit` 0) reset
+    when (cmd `testBit` 0) reset
     when (cmd `testBit` 1) break
 
     enableInputTrigger .= cmd `testBit` 2
