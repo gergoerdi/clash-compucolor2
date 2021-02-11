@@ -54,7 +54,7 @@ mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
 
     rdFloppy = register 1 $ floppyDrive sel phase wr
       where
-        sel = (`testBit` 4) <$> parOut
+        sel = (not . (`testBit` 4)) <$> parOut
         wr = pure Nothing
         phase = pure 0
     serIn = rdFloppy

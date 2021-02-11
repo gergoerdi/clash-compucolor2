@@ -13,7 +13,7 @@ floppyDrive
     -> Signal dom (BitVector 3)
     -> Signal dom (Maybe Bit)
     -> Signal dom Bit
-floppyDrive sel phase wr = rd
+floppyDrive sel phase wr = mux sel rd (pure 1)
   where
     tick = riseEvery (SNat @26) -- TODO
 
