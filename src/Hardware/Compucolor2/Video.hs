@@ -42,7 +42,11 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     VGADriver{..} = vgaDriver vga800x600at60
     -- (vgaY', scanline) = scale (SNat @2) . center $ vgaY
     (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @6) . fst . scale (SNat @2) . center $ vgaX
-    (fromSignal -> textY, fromSignal -> glyphY) = scale (SNat @8) . fst . scale (SNat @2) . center $ vgaY
+    (fromSignal -> textY0, fromSignal -> glyphY) = scale (SNat @8) . fst . scale (SNat @2) . center $ vgaY
+    textY = do
+        offset <- fromSignal scrollOffset
+        y0 <- textY0
+        pure $ satAdd SatWrap offset <$> y0
 
     frameEnd = liftD (isFalling False) (isJust <$> textY)
 
