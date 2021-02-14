@@ -52,11 +52,10 @@ mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
     kbdCols = keyboard scanCode parOut
     parIn = kbdCols
 
-    rdFloppy = register 1 $ floppyDrive sel phase wr
+    rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
       where
-        sel = (not . (`testBit` 4)) <$> parOut
-        wr = pure Nothing
-        phase = pure 0
+        (_, nsel, wr, phase) = unbundle $ bitCoerce @_ @(BitVector 3, _, _, _) <$> parOut
+        write = enable wr serOut
     serIn = rdFloppy
 
     (dataIn, (crtOut@CRT5027.MkOutput{..}, (vidAddr, vidWrite), (parOut, serOut, interruptRequest, rst))) =
