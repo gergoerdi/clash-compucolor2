@@ -7,6 +7,10 @@ import Text.Printf
 
 import Control.Monad.State
 
+type TrackCount = 41
+type TrackSize = 15360
+type DiskSize = TrackCount * TrackSize
+
 floppyDrive
     :: forall dom. (HiddenClockResetEnable dom)
     => Signal dom Bool
@@ -17,31 +21,29 @@ floppyDrive sel phase wr = mux sel rd (pure 1)
   where
     tick = riseEvery (SNat @25) -- TODO
 
-    track = regMaybe (0 :: Index 41) $ do
+    track = snatToNum (SNat @TrackSize)
+
+    base = regMaybe (0 :: Index DiskSize) $ do
         phase0 <- regEn 0 sel phase
         sel <- sel
         phase <- phase
-        track0 <- track
+        base0 <- base
         pure $ do
             guard sel
-            let stepOut = Just $ lessIdx track0
-                stepIn = Just $ moreIdx track0
+            let stepOut = Just$ satSub SatBound base0 track
+                stepIn = Just $ satAdd SatBound base0 track
             case (phase0, phase) of
-                (1, 4) -> stepOut
-                (4, 2) -> stepOut
-                (2, 1) -> stepOut
+                (0b110, 0b011) -> stepOut
+                (0b011, 0b101) -> stepOut
+                (0b101, 0b110) -> stepOut
 
-                (1, 2) -> stepIn
-                (2, 4) -> stepIn
-                (4, 1) -> stepIn
+                (0b110, 0b101) -> stepIn
+                (0b101, 0b011) -> stepIn
+                (0b011, 0b110) -> stepIn
 
                 _ -> Nothing
 
-    addr = regMaybe (0 :: Index 15360) $ enable tick $ nextIdx <$> addr
+    offset = regMaybe (0 :: Index TrackSize) $ enable tick $ nextIdx <$> offset
+    addr = base + (fromIntegral <$> offset)
 
-    -- mems :: Vec 41 (Signal dom Bit)
-    -- mems = map (\i -> unpack <$> blockRamFile (SNat @30720) (printf "_build/disk-%02d.bin" i) addr (pure Nothing)) indicesI
-
-    -- rd = bundle mems .!!. track
-
-    rd = unpack <$> blockRamFile (SNat @15360) ("_build/disk/01.track") addr (pure Nothing)
+    rd = unpack <$> blockRamFile (SNat @DiskSize) ("_build/disk.tracks") addr (pure Nothing)

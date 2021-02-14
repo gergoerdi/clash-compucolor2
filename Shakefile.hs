@@ -28,12 +28,10 @@ main = shakeArgs shakeOptions{ shakeFiles = outDir } $ do
 
     let roms = ["chargen.uf6", "v678.rom"]
 
-    outDir </> "disk/*.track" %> \out -> do
-        let i = read $ takeBaseName out
-
-        let inp = "image/disks/hangman.ccvf" -- TODO
+    outDir </> "disk.tracks" %> \out -> do
+        let inp = "image/disks/hangman.ccvf" -- TODO: flag
         tracks <- map trackBits . splitTracks <$> readFile' inp
-        writeFileChanged out $ unlines . map show $ tracks !! i
+        writeFileChanged out $ unlines . map show $ concat tracks
 
     outDir </> "*.bin" %> \out -> do
         let inp = "image" </> dropExtension (takeFileName out)
@@ -46,7 +44,7 @@ main = shakeArgs shakeOptions{ shakeFiles = outDir } $ do
         -- , "-fclash-inline-limit=600"
         ] $ do
         need [outDir </> rom <.> "bin" | rom <- roms]
-        need [outDir </> "disk/01.track"] -- TODO
+        need [outDir </> "disk.tracks"]
 
     forM_ targets $ \(name, synth) -> do
         SynthKit{..} <- synth kit (outDir </> name </> "synth") ("target" </> name) "Compucolor2"
