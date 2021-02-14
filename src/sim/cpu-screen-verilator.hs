@@ -41,11 +41,11 @@ main = withRunner $ \runCycle -> do
 
     vidRAM <- newArray @IOArray (minBound, maxBound) 0x20
 
-    flip evalStateT Nothing $ withMainWindow videoParams $ \events keyDown -> do
+    flip evalStateT (Nothing, 0) $ withMainWindow videoParams $ \events keyDown -> do
         guard $ not $ keyDown ScancodeEscape
 
         replicateM_ 20000 $ do
-            vidRead <- get
+            (vidRead, frameCount) <- get
             let input = INPUT
                     { iVID_READ = toFFI vidRead
                     }
@@ -58,6 +58,9 @@ main = withRunner $ \runCycle -> do
                 x <- readArray vidRAM addr
                 traverse_ (writeArray vidRAM addr) vidWrite
                 return x
-            put vidRead
+            put (vidRead, frameCount)
+
+        (vidRead, frameCount) <- get
+        if frameCount == 200 then mzero else put (vidRead, frameCount + 1)
 
         liftIO $ renderScreen fontROM vidRAM

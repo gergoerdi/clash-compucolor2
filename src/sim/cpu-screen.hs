@@ -9,6 +9,7 @@ import Hardware.Compucolor2.Sim.SDL
 import Data.Array.IO
 import qualified Data.ByteString as BS
 import Control.Monad
+import Control.Monad.State
 import Control.Monad.Trans
 import Data.Foldable (traverse_)
 import Data.Traversable (for)
@@ -25,7 +26,7 @@ main = do
 
     sim <- simulateIO_ @System (bundle . simBoard) Nothing
 
-    withMainWindow videoParams $ \events keyDown -> do
+    flip evalStateT 0 $ withMainWindow videoParams $ \events keyDown -> do
         guard $ not $ keyDown ScancodeEscape
 
         replicateM_ 20000 $ liftIO $ do
@@ -34,4 +35,7 @@ main = do
                 traverse_ (writeArray vidRAM addr) vidWrite
                 return x
 
-        lift $ renderScreen fontROM vidRAM
+        frameCount <- get
+        if frameCount == 200 then mzero else put (frameCount + 1)
+
+        liftIO $ renderScreen fontROM vidRAM

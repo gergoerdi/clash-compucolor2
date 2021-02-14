@@ -23,6 +23,9 @@ import Control.Lens hiding (Index, (:>))
 import Control.Monad.Extra
 import Barbies.TH
 
+import Debug.Trace
+import Text.Printf
+
 type Port = Index 16
 
 data S = MkS
@@ -90,7 +93,7 @@ controller inp@MkInput{..} tick cmd = do
         whenM (isJust <$> use txBuf) $ setInt 3
         txBuf .= Nothing
 
-    for_ rxResult $ \x -> do
+    for_ rxResult $ \x -> {- trace (printf "serial in: %02x" x) $ -} do
         whenM (use rxReady) $ rxOverrun .= True
         setInt 4
         rxReady .= True
