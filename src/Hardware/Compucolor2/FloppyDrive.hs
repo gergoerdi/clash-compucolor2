@@ -15,7 +15,7 @@ floppyDrive
     -> Signal dom Bit
 floppyDrive sel phase wr = mux sel rd (pure 1)
   where
-    tick = riseEvery (SNat @26) -- TODO
+    tick = riseEvery (SNat @25) -- TODO
 
     track = regMaybe (0 :: Index 41) $ do
         phase0 <- regEn 0 sel phase
