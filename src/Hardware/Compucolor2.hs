@@ -51,6 +51,7 @@ mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
 
     kbdCols = keyboard scanCode parOut
     parIn = kbdCols
+    pause = not <$> riseEvery (SNat @20)
 
     rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
       where
