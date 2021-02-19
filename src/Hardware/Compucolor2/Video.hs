@@ -91,13 +91,22 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         pure $ let y' = y `shiftR` 1 + if odd ty then 4 else 0
                in if isTall then y' else y
 
-    glyphLoad = enable (delayI False $ isJust <$> charLoad) $
+    fromPlot :: Unsigned 8 -> Unsigned 8
+    fromPlot x = bitCoerce (x!0, x!0, x!0, x!4, x!4, x!4, low, low)
+
+    shiftY :: Unsigned 8 -> Maybe (Index 8) -> Unsigned 8
+    shiftY x y  = x `shiftR` maybe 0 (fromIntegral . (`shiftR` 1)) y
+
+    plotBuf = delayedRegister 0 $ \r -> fromMaybe <$> r <*> charLoad
+    nextBlock = enable (delayI False $ isJust <$> charLoad) $
         mux (delayI False isPlot)
-          (fontRom glyphAddr glyphY') -- TODO: get glyph data from char itself
+          (delayI 0 $ fromPlot <$> (shiftY <$> plotBuf <*> delayI Nothing glyphY))
           (fontRom glyphAddr glyphY')
+    block = enable (delayI False newChar) $ liftD (regMaybe 0) nextBlock
+
     newCol = liftD (changed Nothing) glyphX
 
-    pixel = liftD2 shifterL glyphLoad (delayI False newCol)
+    pixel = liftD2 shifterL block (delayI False newCol)
 
     rgb = do
         x <- delayI Nothing textX
