@@ -7,18 +7,19 @@ import qualified Clash.Signal.Delayed.Bundle as D
 import RetroClash.Utils
 import RetroClash.VGA
 import RetroClash.Video
-import RetroClash.Delayed
+import RetroClash.Delayed hiding (delayedBlockRam1)
 import RetroClash.Barbies
 
 import Hardware.Compucolor2.CRT5027 as CRT5027
 
 import Control.Monad
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (isJust, isNothing, fromMaybe)
 
 type FontWidth = 6
 type FontHeight = 8
 
-type VidSize = TextWidth * TextHeight * 2
+type VidBufSize = TextWidth * TextHeight
+type VidSize = VidBufSize * 2
 type VidAddr = Index VidSize
 
 -- | 40 MHz clock, needed for the VGA mode we use.
@@ -40,85 +41,69 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     )
   where
     VGADriver{..} = vgaDriver vga800x600at60
-    -- (vgaY', scanline) = scale (SNat @2) . center $ vgaY
-    (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @6) . fst . scale (SNat @2) . center $ vgaX
-    (fromSignal -> textY0, fromSignal -> glyphY) = scale (SNat @8) . fst . scale (SNat @2) . center $ vgaY
-    textY = do
-        offset <- fromSignal scrollOffset
-        y0 <- textY0
-        pure $ satAdd SatWrap offset <$> y0
+    (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @FontWidth) . fst . scale (SNat @2) . center $ vgaX
+    (fromSignal -> textY0, fromSignal -> glyphY) = scale (SNat @FontHeight) . fst . scale (SNat @2) . center $ vgaY
+    textY = scroll <$> fromSignal scrollOffset <*> textY0
 
-    frameEnd = liftD (isFalling False) (isJust <$> textY)
+    vblank = isNothing <$> textY
+    frameEnd = liftD (isRising False) vblank
+
+    extAddr' = schedule <$> vblank <*> extAddr
+      where
+        schedule vblank extAddr = do
+            (urgent, addr) <- extAddr
+            guard $ urgent || vblank
+            return addr
+    (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr'
 
     newChar = liftD (isRising False) $ glyphX .== Just 0
+    intAddr = guardA newChar $ bitCoerce <$> (liftA2 (,) <$> textY <*> textX)
 
-    (charAddr, attrAddr) = (redelayI charAddr0, fmap (+1) <$> charAddr1)
-      where
-        charAddr0 = do
-            x <- textX
-            y <- textY
-            newChar <- newChar
-            pure $ case (x, y, newChar) of
-                (Just x, Just y, True) -> Just $ bitCoerce (y, x, (0 :: Index 2))
-                _ -> Nothing
-
-        charAddr1 = delayN (SNat @1) Nothing charAddr0
-
-    intAddr = muxA [charAddr, attrAddr]
-
-    (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr
-    extRead1 :> intLoad :> extRead2 :> Nil = sharedDelayed (ram . D.unbundle . fmap (fromMaybe (0, Nothing))) $
-        extAddr1 `withWrite` extWrite :>
+    frameBuf extAddr = sharedDelayed (delayedBlockRam1 NoClearOnReset (SNat @VidBufSize) 0) $
+        extAddr `withWrite` extWrite :>
         noWrite intAddr :>
-        extAddr2 `withWrite` extWrite :>
         Nil
-      where
-        ram (addr, wr) = delayedRam (blockRam1 NoClearOnReset (SNat @VidSize) 0) addr (packWrite <$> addr <*> wr)
 
-    extRead = mplus <$> extRead1 <*> extRead2
+    extRead1 :> charRead :> Nil = frameBuf extAddr1
+    extRead2 :> attrRead :> Nil = frameBuf extAddr2
+    extRead = extRead1 .<|>. extRead2
 
-    charLoad = guardA (isJust <$> delayI Nothing charAddr) intLoad
-    (isTall, glyphAddr) = D.unbundle $ bitCoerce . fromMaybe 0 <$> charLoad
+    char = delayedRegister 0 (.|>. charRead)
+    (isTall, glyphAddr) = D.unbundle $ bitCoerce <$> char
 
-    attrLoad = guardA (isJust <$> delayI Nothing attrAddr) intLoad
-    attr = delayedRegister 0x00 (attrLoad .|>.)
-    (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, Bool, Unsigned 3, Unsigned 3) <$> attr
+    attr = delayedRegister 0 (.|>. attrRead)
+    (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, _, _, _) <$> attr
 
     glyphY' = do
-        y <- delayI Nothing glyphY .|>. 0
-        ty <- delayI Nothing textY .|>. 0
+        y <- delayI Nothing glyphY .<|. 0
+        ty <- delayI Nothing textY .<|. 0
         isTall <- isTall
-        pure $ let y' = y `shiftR` 1 + if odd ty then 4 else 0
-               in if isTall then y' else y
+        pure $ if isTall then half y + (if odd ty then 4 else 0) else y
 
-    fromPlot :: Unsigned 8 -> Unsigned 8
     fromPlot x = bitCoerce (x!0, x!0, x!0, x!4, x!4, x!4, low, low)
+    shiftY x y  = x `shiftR` maybe 0 (fromIntegral . half) y
 
-    shiftY :: Unsigned 8 -> Maybe (Index 8) -> Unsigned 8
-    shiftY x y  = x `shiftR` maybe 0 (fromIntegral . (`shiftR` 1)) y
-
-    plotBuf = delayedRegister 0 $ \r -> fromMaybe <$> r <*> charLoad
-    nextBlock = enable (delayI False $ isJust <$> charLoad) $
+    nextBlock = enable (delayI False $ isJust <$> charRead) $
         mux (delayI False isPlot)
-          (delayI 0 $ fromPlot <$> (shiftY <$> plotBuf <*> delayI Nothing glyphY))
+          (delayI 0 $ fromPlot <$> (shiftY <$> char <*> delayI Nothing glyphY))
           (fontRom glyphAddr glyphY')
-    block = enable (delayI False newChar) $ liftD (regMaybe 0) nextBlock
+    block = enable (delayI False newChar) $ delayedRegister 0 (.|>. nextBlock)
 
     newCol = liftD (changed Nothing) glyphX
-
     pixel = liftD2 shifterL block (delayI False newCol)
 
     rgb = do
         x <- delayI Nothing textX
         y <- delayI Nothing textY
         cursor <- delayI Nothing $ fromSignal cursor
+        blink <- delayI False blink
         pixel <- bitToBool <$> pixel
         fore <- delayI 0 fore
         back <- delayI 0 back
 
         pure $ case liftA2 (,) x y of
             Nothing -> (0x30, 0x30, 0x30)
-            Just (x, y) -> fromBGR $ if pixel `xor` isCursor then fore else back
+            Just (x, y) -> fromBGR $ if pixel `xor` (isCursor || blink) then fore else back
               where
                 isCursor = cursor == Just (x', y')
                 x' = fromIntegral @(Index TextWidth) x
@@ -130,9 +115,15 @@ fromBGR (bitCoerce -> (b, g, r)) = (stretch r, stretch g, stretch b)
     stretch False = minBound
     stretch True = maxBound
 
-unbraid :: Maybe (Bool, a) -> (Maybe a, Maybe a)
+scroll :: (SaturatingNum a) => a -> Maybe a -> Maybe a
+scroll offset x = satAdd SatWrap offset <$> x
+
+unbraid
+    :: (KnownNat n, 1 <= 2 * n, (CLog 2 (2 * n)) ~ (CLog 2 n + 1))
+    =>  Maybe (Index (2 * n))
+    -> (Maybe (Index n), Maybe (Index n))
 unbraid Nothing = (Nothing, Nothing)
-unbraid (Just (first, x)) = if first then (Just x, Nothing) else (Nothing, Just x)
+unbraid (Just addr) = let (addr', sel) = bitCoerce addr in (addr' <$ guard (not sel), addr' <$ guard sel)
 
 fontRom
     :: (HiddenClockResetEnable dom)
@@ -145,8 +136,14 @@ fontRom char row = delayedRom (fmap unpack . romFilePow2 "_build/chargen.uf6.bin
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
     toAddr char row = bitCoerce (char, row)
 
-redelayI :: (KnownNat k, HiddenClockResetEnable dom) => DSignal dom d a -> DSignal dom (d+k) a
-redelayI = unsafeFromSignal . toSignal
-
-redelayN :: (HiddenClockResetEnable dom) => SNat k -> DSignal dom d a -> DSignal dom (d+k) a
-redelayN SNat = redelayI
+delayedBlockRam1
+    :: (1 <= n, Enum addr, NFDataX a, HiddenClockResetEnable dom)
+    => ResetStrategy r
+    -> SNat n
+    -> a
+    -> DSignal dom d (Maybe (addr, Maybe a))
+    -> DSignal dom (d + 1) a
+delayedBlockRam1 resetStrat size content addrWr =
+    delayedRam (blockRam1 resetStrat size content) addr (packWrite <$> addr <*> wr)
+  where
+    (addr, wr) = D.unbundle $ fromMaybe (undefined, Nothing) <$> addrWr
