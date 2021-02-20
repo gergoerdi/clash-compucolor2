@@ -25,33 +25,36 @@ import RetroClash.Barbies
 topEntity
     :: "CLK_40MHZ" ::: Clock Dom40
     -> "RESET"     ::: Reset Dom40
+    -> "SWITCHES"  ::: Signal Dom40 (BitVector 8)
     -> "PS2"       ::: PS2 Dom40
     -> "VGA"       ::: VGAOut Dom40 8 8 8
 topEntity = withEnableGen board
   where
-    board ps2 = vga
+    board switches ps2 = vga
       where
+        turbo = bitToBool . lsb <$> switches
         scanCode = parseScanCode . decodePS2 . samplePS2 $ ps2
 
-        (crtOut, vidAddr, vidWrite) = mainBoard scanCode frameEnd vidRead
+        (crtOut, vidAddr, vidWrite) = mainBoard turbo scanCode frameEnd vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
-    => Signal dom (Maybe ScanCode)
+    => Signal dom Bool
+    -> Signal dom (Maybe ScanCode)
     -> Signal dom Bool
     -> Signal dom (Maybe (Unsigned 8))
     -> ( Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        )
-mainBoard scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
+mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
     kbdCols = keyboard scanCode parOut
     parIn = kbdCols
-    pause = not <$> riseEvery (SNat @20)
+    pause = not <$> (turbo .||. riseEvery (SNat @20))
 
     rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
       where
@@ -95,7 +98,7 @@ simBoard
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_crtOut, vidAddr, vidWrite) = mainBoard (pure Nothing) (pure False) vidRead
+    (_crtOut, vidAddr, vidWrite) = mainBoard (pure True) (pure Nothing) (pure False) vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40

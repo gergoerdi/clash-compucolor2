@@ -1,6 +1,8 @@
 module Compucolor2 (
            input        CLK100MHZ,
 
+           input [15:0] SW,
+
            input        PS2_CLK,
            input        PS2_DATA,
 
@@ -31,6 +33,8 @@ module Compucolor2 (
    topEntity u_topEntity
      (.CLK_40MHZ(CLK_40MHZ),
       .RESET(!CLK_LOCKED),
+
+      .SWITCHES(SW[7:0]),
 
       .PS2_CLK(PS2_CLK),
       .PS2_DATA(PS2_DATA),

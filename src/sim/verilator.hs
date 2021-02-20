@@ -44,6 +44,7 @@ main = withRunner $ \runCycle -> do
 
         let input = INPUT
                 { iRESET = low
+                , iSWITCHES = 0b0000_0001
                 , iPS2_CLK = low
                 , iPS2_DATA = low
                 }
