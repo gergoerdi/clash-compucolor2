@@ -1,6 +1,12 @@
 {-# LANGUAGE NumericUnderscores, RecordWildCards, ViewPatterns #-}
 {-# LANGUAGE ApplicativeDo #-}
-module Hardware.Compucolor2.Video where
+module Hardware.Compucolor2.Video
+    ( Dom40
+    , FontWidth
+    , FontHeight
+    , VidAddr
+    , video
+    ) where
 
 import Clash.Prelude
 import qualified Clash.Signal.Delayed.Bundle as D
@@ -11,12 +17,11 @@ import RetroClash.Delayed hiding (delayedBlockRam1)
 import RetroClash.Barbies
 
 import Hardware.Compucolor2.CRT5027 as CRT5027
+import Hardware.Compucolor2.Video.Plot
 
 import Control.Monad
 import Data.Maybe (isJust, isNothing, fromMaybe)
-
-type FontWidth = 6
-type FontHeight = 8
+import qualified Language.Haskell.TH.Syntax as TH
 
 type VidBufSize = TextWidth * TextHeight
 type VidSize = VidBufSize * 2
@@ -82,12 +87,9 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         isTall <- isTall
         pure $ if isTall then half y + (if odd ty then 4 else 0) else y
 
-    fromPlot x = bitCoerce (x!0, x!0, x!0, x!4, x!4, x!4, low, low)
-    shiftY x y  = x `shiftR` maybe 0 (fromIntegral . half) y
-
     nextBlock = enable (delayI False $ isJust <$> charRead) $
         mux (delayI False isPlot)
-          (delayI 0 $ fromPlot <$> (shiftY <$> char <*> delayI Nothing glyphY))
+          (plotRom char (delayI Nothing glyphY .<| 0))
           (fontRom glyphAddr glyphY')
     block = enable (delayI False newChar) $ delayedRegister 0 (.|>. nextBlock)
 
@@ -137,3 +139,20 @@ fontRom char row = delayedRom (fmap unpack . romFilePow2 "_build/chargen.uf6.bin
   where
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
     toAddr char row = bitCoerce (char, row)
+
+plotRom
+    :: (HiddenClockResetEnable dom)
+    => DSignal dom n (Unsigned 8)
+    -> DSignal dom n (Index FontHeight)
+    -> DSignal dom (n + 1) (Unsigned 8)
+plotRom char row = stretchRow <$> col1 <*> col2
+  where
+    (char2, char1) = D.unbundle . fmap bitCoerce $ char
+
+    col1 = delayedRom (rom $(TH.lift plots)) $ toAddr <$> char1 <*> row
+    col2 = delayedRom (rom $(TH.lift plots)) $ toAddr <$> char2 <*> row
+
+    toAddr :: Unsigned 4 -> Index 8 -> Unsigned (4 + CLog 2 (FontHeight `Div` 2))
+    toAddr char row = bitCoerce (char, row')
+      where
+        (row', _) = bitCoerce @_ @(Index (FontHeight `Div` 2), Bit) row
