@@ -59,10 +59,12 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     newChar = liftD (isRising False) $ glyphX .== Just 0
     intAddr = guardA newChar $ bitCoerce <$> (liftA2 (,) <$> textY <*> textX)
 
-    frameBuf extAddr = sharedDelayed (delayedBlockRam1 NoClearOnReset (SNat @VidBufSize) 0) $
+    frameBuf extAddr = sharedDelayedRW ram $
         extAddr `withWrite` extWrite :>
         noWrite intAddr :>
         Nil
+      where
+        ram = singlePort $ delayedRam (blockRam1 NoClearOnReset (SNat @VidBufSize) 0)
 
     extRead1 :> charRead :> Nil = frameBuf extAddr1
     extRead2 :> attrRead :> Nil = frameBuf extAddr2
@@ -135,15 +137,3 @@ fontRom char row = delayedRom (fmap unpack . romFilePow2 "_build/chargen.uf6.bin
   where
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
     toAddr char row = bitCoerce (char, row)
-
-delayedBlockRam1
-    :: (1 <= n, Enum addr, NFDataX a, HiddenClockResetEnable dom)
-    => ResetStrategy r
-    -> SNat n
-    -> a
-    -> DSignal dom d (Maybe (addr, Maybe a))
-    -> DSignal dom (d + 1) a
-delayedBlockRam1 resetStrat size content addrWr =
-    delayedRam (blockRam1 resetStrat size content) addr (packWrite <$> addr <*> wr)
-  where
-    (addr, wr) = D.unbundle $ (undefined, Nothing) |>. addrWr
