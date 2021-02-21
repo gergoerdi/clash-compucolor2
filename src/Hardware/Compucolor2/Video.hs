@@ -75,8 +75,8 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, _, _, _) <$> attr
 
     glyphY' = do
-        y <- delayI Nothing glyphY .<|. 0
-        ty <- delayI Nothing textY .<|. 0
+        y <- delayI Nothing glyphY .<| 0
+        ty <- delayI Nothing textY .<| 0
         isTall <- isTall
         pure $ if isTall then half y + (if odd ty then 4 else 0) else y
 
@@ -146,4 +146,4 @@ delayedBlockRam1
 delayedBlockRam1 resetStrat size content addrWr =
     delayedRam (blockRam1 resetStrat size content) addr (packWrite <$> addr <*> wr)
   where
-    (addr, wr) = D.unbundle $ fromMaybe (undefined, Nothing) <$> addrWr
+    (addr, wr) = D.unbundle $ (undefined, Nothing) |>. addrWr
