@@ -23,8 +23,8 @@ import Control.Monad
 import Data.Maybe (isJust, isNothing, fromMaybe)
 import qualified Language.Haskell.TH.Syntax as TH
 
-type VidBufSize = TextWidth * TextHeight
-type VidSize = VidBufSize * 2
+type TextSize = TextWidth * TextHeight
+type VidSize = TextSize * 2
 type VidAddr = Index VidSize
 
 -- | 40 MHz clock, needed for the VGA mode we use.
@@ -70,7 +70,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         noWrite intAddr :>
         Nil
       where
-        ram = singlePort $ delayedRam (blockRam1 NoClearOnReset (SNat @VidBufSize) 0)
+        ram = singlePort $ delayedRam (blockRam1 NoClearOnReset (SNat @TextSize) 0)
 
     extRead1 :> charRead :> Nil = frameBuf extAddr1
     extRead2 :> attrRead :> Nil = frameBuf extAddr2
