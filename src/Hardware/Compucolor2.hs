@@ -52,17 +52,17 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
-    kbdCols = keyboard scanCode parOut
+    kbdCols = keyboard scanCode parallelOut
     parIn = kbdCols
     pause = not <$> (turbo .||. riseEvery (SNat @20))
 
     rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
       where
-        (_, nsel, wr, phase) = unbundle $ bitCoerce @_ @(BitVector 3, _, _, _) <$> parOut
-        write = enable wr serOut
+        (_, nsel, wr, phase) = unbundle $ bitCoerce @_ @(BitVector 3, _, _, _) <$> parallelOut
+        write = enable wr serialOut
     serIn = rdFloppy
 
-    (dataIn, (crtOut@CRT5027.MkOutput{..}, (vidAddr, vidWrite), (parOut, serOut, interruptRequest, rst))) =
+    (dataIn, ((vidAddr, vidWrite), crtOut@CRT5027.MkOutput{..}, TMS5501.MkOutput{..})) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
             ram <- ram0 (SNat @0x4000)
@@ -88,7 +88,7 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
                 from 0x7000 $ tag False $ connect vid
                 from 0x8000 $ connect ram
 
-            return (crtOut, (vidAddr, vidWrite), tmsOut))
+            return ((vidAddr, vidWrite), crtOut, tmsOut))
 
 simBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
