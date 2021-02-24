@@ -51,13 +51,14 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     textY = scroll <$> fromSignal scrollOffset <*> textY0
 
     vblank = isNothing <$> textY
+    hblank = isNothing <$> textX
     frameEnd = liftD (isRising False) vblank
 
-    extAddr' = schedule <$> vblank <*> extAddr
+    extAddr' = schedule <$> hblank <*> extAddr
       where
-        schedule vblank extAddr = do
+        schedule hblank extAddr = do
             (urgent, addr) <- extAddr
-            guard $ urgent || vblank
+            guard $ urgent || hblank
             return addr
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr'
 
