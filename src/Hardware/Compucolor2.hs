@@ -65,7 +65,7 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
     (dataIn, (crtOut@CRT5027.MkOutput{..}, (vidAddr, vidWrite), (parOut, serOut, interruptRequest, rst))) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
-            ram <- ram0 (SNat @0x8000)
+            ram <- ram0 (SNat @0x4000)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
