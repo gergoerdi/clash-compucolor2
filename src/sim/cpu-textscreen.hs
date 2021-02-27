@@ -14,7 +14,7 @@ import Data.Traversable (for)
 
 main :: IO ()
 main = do
-    vidRAM <- newArray (minBound, maxBound) 0x20
+    vidRAM <- newArray (minBound, maxBound) 0x00
 
     sim <- simulateIO_ @System (bundle . simBoard) Nothing
 
