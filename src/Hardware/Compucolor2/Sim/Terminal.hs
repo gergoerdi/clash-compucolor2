@@ -19,20 +19,23 @@ putScreen
     => IOArray VidAddr (Unsigned 8)
     -> m ()
 putScreen vidRAM = do
-    for_ [minBound..maxBound] $ \(y :: Index TextHeight) -> do
+    for_ [minBound..maxBound] $ \y -> do
         setCursorPosition $ Position (fromIntegral y) 0
-
-        for_ [minBound..maxBound] $ \(x :: Index TextWidth) -> do
-            let addr = bitCoerce (y, x, (0 :: Index 2))
-            b0 <- liftIO $ readArray vidRAM addr
-            b1 <- liftIO $ readArray vidRAM (addr + 1)
-            let (tall, c) = bitCoerce b0
-                (isChar, blink, back, fore) = bitCoerce @_ @(Bool, Bool, _, _) b1
-            setAttribute $ foreground $ bright $ toColor fore
-            setAttribute $ background $ bright $ toColor back
-            putCharCC $ if tall && odd y then 0x20 else c
+        for_ [minBound..maxBound] $ \x ->
+            putCharAt x y
     flush
   where
+    putCharAt :: Index TextWidth -> Index TextHeight -> m ()
+    putCharAt x y = do
+        let addr = bitCoerce (y, x, (0 :: Index 2))
+        b0 <- liftIO $ readArray vidRAM addr
+        b1 <- liftIO $ readArray vidRAM (addr + 1)
+        let (tall, c) = bitCoerce b0
+            (isChar, blink, back, fore) = bitCoerce @_ @(Bool, Bool, _, _) b1
+        setAttribute $ foreground $ bright $ toColor fore
+        setAttribute $ background $ bright $ toColor back
+        putCharCC $ if tall && odd y then 0x20 else c
+
     putCharCC :: Unsigned 7 -> m ()
     putCharCC = putChar . chr . fromIntegral
 
