@@ -19,6 +19,10 @@ main = do
     sim <- simulateIO_ @System (bundle . simBoard) Nothing
 
     withTerminal $ runTerminalT $ do
+        eraseInDisplay EraseAll
+        hideCursor
+        setAutoWrap False
+
         forever $ do
             replicateM_ 20000 $ liftIO $ do
                 sim $ \(vidAddr, vidWrite) -> for vidAddr $ \(prio, addr) -> do

@@ -35,6 +35,10 @@ main = withRunner $ \runCycle -> do
     vidRAM <- newArray (minBound, maxBound) 0x20
 
     flip evalStateT Nothing $ withTerminal $ runTerminalT $ do
+        eraseInDisplay EraseAll
+        hideCursor
+        setAutoWrap False
+
         forever $ do
             replicateM_ 20000 $ do
                 vidRead <- lift get

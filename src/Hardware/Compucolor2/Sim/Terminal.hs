@@ -16,15 +16,10 @@ import Control.Monad.Trans
 import Data.Char (chr)
 
 putScreen
-    :: forall m. (MonadScreen m, MonadColorPrinter m, MonadIO m)
+    :: forall m. (MonadIO m, MonadScreen m, MonadColorPrinter m)
     => IOArray VidAddr (Unsigned 8)
     -> m ()
 putScreen vidRAM = do
-    eraseInDisplay EraseAll
-    hideCursor
-    setCursorPosition $ Position 0 0
-    setAutoWrap False
-
     vidRAM <- liftIO $ freeze vidRAM
     for_ [minBound..maxBound] $ \(y :: Index TextHeight) -> do
         setCursorPosition $ Position (fromIntegral y) 0
