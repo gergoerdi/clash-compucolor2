@@ -30,11 +30,15 @@ renderScreen fontROM vidRAM = do
           (tall, c) = bitCoerce char :: (Bool, Unsigned 7)
           (isPlot, (blink :: Bool), back, fore) = bitCoerce attr
 
-          pixel
-            | isPlot = testBit (char `shiftR` fromIntegral (half y0)) (if x0 < 3 then 0 else 4)
-            | otherwise = testBit glyphRow (7 - fromIntegral x0)
+          pixel = if isPlot then plotPixel else glyphPixel
+
+          plotPixel = testBit (char `shiftR` fromIntegral (half y0)) (if x0 < 3 then 0 else 4)
+
+          glyphPixel = bitToBool $ msb $ glyphRow `shiftL` fromIntegral x0
             where
-              y0' = if tall then half y0 + if odd y1 then 4 else 0 else y0
+              y0'
+                | tall = half y0 + if odd y1 then 4 else 0
+                | otherwise = y0
               glyphAddr = bitCoerce (c, y0')
               glyphRow = fontROM ! glyphAddr
 
