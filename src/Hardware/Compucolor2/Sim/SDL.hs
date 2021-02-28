@@ -53,4 +53,5 @@ videoParams = MkVideoParams
 toColor :: (Bit, Bit, Bit) -> (Word8, Word8, Word8)
 toColor (b, g, r) = (stretch r, stretch g, stretch b)
   where
-    stretch x = if x == 0 then minBound else maxBound
+    stretch 0 = minBound
+    stretch 1 = maxBound

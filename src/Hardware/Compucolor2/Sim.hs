@@ -9,8 +9,9 @@ divI
     => SNat k
     -> Index n
     -> (Index (n `Div` k), Index k)
-divI k@SNat x = let (x1, x0) = x `quotRem` snatToNum k
-                in (fromIntegral x1, fromIntegral x0)
+divI k@SNat x = (fromIntegral x1, fromIntegral x0)
+  where
+    (x1, x0) = x `quotRem` snatToNum k
 
 toFFI :: (BitPack a, BitPack b, KnownNat n, BitSize b ~ (BitSize a + n)) => a -> b
 toFFI = unpack . ensureBits . resize . pack
