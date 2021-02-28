@@ -31,7 +31,7 @@ putScreen vidRAM = do
         b0 <- liftIO $ readArray vidRAM addr
         b1 <- liftIO $ readArray vidRAM (addr + 1)
         let (tall, c) = bitCoerce b0
-            (isChar, blink, back, fore) = bitCoerce @_ @(Bool, Bool, _, _) b1
+            (isPlot :: Bool, blink :: Bool, back, fore) = bitCoerce b1
         setAttribute $ foreground $ bright $ toColor fore
         setAttribute $ background $ bright $ toColor back
         putCharCC $ if tall && odd y then 0x20 else c
