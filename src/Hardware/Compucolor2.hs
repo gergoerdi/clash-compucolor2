@@ -4,6 +4,8 @@ module Hardware.Compucolor2
     , simEntity
     , mainBoard
     , simBoard
+
+    , VidAddr
     ) where
 
 import Clash.Prelude
