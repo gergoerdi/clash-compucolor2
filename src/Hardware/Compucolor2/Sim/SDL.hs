@@ -3,6 +3,7 @@ module Hardware.Compucolor2.Sim.SDL where
 
 import Clash.Prelude hiding ((!))
 
+import RetroClash.Utils
 import RetroClash.Sim.SDL
 
 import Hardware.Compucolor2.Sim
@@ -19,24 +20,31 @@ renderScreen
     -> IO (Rasterizer (TextWidth * FontWidth) (TextHeight * FontHeight))
 renderScreen fontROM vidRAM = do
     vidRAM <- freeze vidRAM
-    return $ rasterizePattern @(TextWidth * FontWidth) @(TextHeight * FontHeight) $ \x y ->
+    return $ rasterizePattern $ \x y ->
       let (x1, x0) = divI (SNat @FontWidth) x
           (y1, y0) = divI (SNat @FontHeight) y
-          charAddr = bitCoerce (y1, x1, (0 :: Index 2)) :: Index (TextWidth * TextHeight * 2)
-          (tall, c) = bitCoerce (vidRAM ! charAddr) :: (Bool, Unsigned 7)
-          y0' = if tall then (y0 `shiftR` 1 + if odd y1 then 4 else 0) else y0
-          glyphAddr = bitCoerce (c, y0')
-          glyphRow = fontROM ! glyphAddr
-          pixel = testBit glyphRow (7 - fromIntegral x0)
+
+          charAddr = bitCoerce (y1, x1, (0 :: Index 2))
+          char = vidRAM ! charAddr
           attr = vidRAM ! (charAddr + 1)
-          (isChar, blink, back, fore) = bitCoerce @_ @(Bool, Bool, _, _) attr
+          (tall, c) = bitCoerce char :: (Bool, Unsigned 7)
+          (isPlot, (blink :: Bool), back, fore) = bitCoerce attr
+
+          pixel
+            | isPlot = testBit (char `shiftR` fromIntegral (half y0)) (if x0 < 3 then 0 else 4)
+            | otherwise = testBit glyphRow (7 - fromIntegral x0)
+            where
+              y0' = if tall then half y0 + if odd y1 then 4 else 0 else y0
+              glyphAddr = bitCoerce (c, y0')
+              glyphRow = fontROM ! glyphAddr
+
           (r, g, b) = toColor $ if pixel then fore else back
           checker = if even x1 `xor` even y1 then 0x60 else minBound
       in (r, g `max` checker, b)
 
 videoParams :: VideoParams
 videoParams = MkVideoParams
-    { windowTitle = "Compucolor 2"
+    { windowTitle = "Compucolor II"
     , screenScale = 4
     , screenRefreshRate = 60
     , reportFPS = True

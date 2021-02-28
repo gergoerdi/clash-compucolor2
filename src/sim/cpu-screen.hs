@@ -1,3 +1,4 @@
+{-# LANGUAGE NumericUnderscores #-}
 import Clash.Prelude hiding ((!), lift)
 
 import RetroClash.Sim.SDL
@@ -7,15 +8,23 @@ import Hardware.Compucolor2.Sim.SDL
 
 import Data.Array.IO
 import qualified Data.ByteString as BS
+import Data.Word
 import Control.Monad
 import Control.Monad.Trans
 
+import Data.Char
+
+loadArray :: (BitPack a, BitSize a ~ BitSize Word8, Num i, Enum i, Ix i) => IOArray i a -> FilePath -> IO ()
+loadArray arr path = do
+    bs <- BS.readFile path
+    let img = bitCoerce <$> BS.unpack bs
+    zipWithM_ (writeArray arr) [0..] img
+
 main :: IO ()
 main = do
-    fontPath <- return "image/chargen.uf7"
-    fontBS <- BS.readFile fontPath
+    fontPath <- return "image/chargen.uf7" -- TODO: Use Cabal to discover file?
     fontROM <- newArray @IOArray (minBound, maxBound) 0
-    zipWithM_ (writeArray fontROM) [0..] (fmap bitCoerce $ BS.unpack fontBS)
+    loadArray fontROM fontPath
     fontROM <- freeze fontROM
 
     (vidRAM, step) <- mkSim
