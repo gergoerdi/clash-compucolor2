@@ -39,12 +39,12 @@ putScreen vidRAM = do
     putCharCC :: Unsigned 7 -> m ()
     putCharCC = putChar . chr . fromIntegral
 
-    toColor :: (Bit, Bit, Bit) -> Color m
-    toColor (0, 0, 0) = black
-    toColor (0, 0, 1) = red
-    toColor (0, 1, 0) = green
-    toColor (0, 1, 1) = yellow
-    toColor (1, 0, 0) = blue
-    toColor (1, 0, 1) = magenta
-    toColor (1, 1, 0) = cyan
-    toColor (1, 1, 1) = white
+    toColor :: Unsigned 3 -> Color m
+    toColor 0b000 = black
+    toColor 0b001 = red
+    toColor 0b010 = green
+    toColor 0b011 = yellow
+    toColor 0b100 = blue
+    toColor 0b101 = magenta
+    toColor 0b110 = cyan
+    toColor 0b111 = white
