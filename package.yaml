@@ -1,6 +1,6 @@
 name:                clash-compucolor2
 version:             0.1.0
-synopsis:            "Compucolor 2 home computer"
+synopsis:            "Compucolor II home computer"
 homepage:            https://github.com/gergoerdi/clash-compucolor2
 license:             MIT
 author:              Gergő Érdi
@@ -84,36 +84,53 @@ ghc-options:
   -fplugin GHC.TypeLits.Normalise
   -fplugin GHC.TypeLits.Extra.Solver
 
-source-dirs:
-  - src
-
 flags:
   verilator:
     manual: True
     default: False
 
+library:
+  source-dirs: src
+  exposed-modules:
+    - Hardware.Compucolor2
+    - Hardware.Compucolor2.CRT5027
+    - Hardware.Compucolor2.TMS5501
+    - Hardware.Compucolor2.Video
+    - Hardware.Compucolor2.Sim
+    - Hardware.Compucolor2.Sim.Clash
+    - Hardware.Compucolor2.Sim.Terminal
+    - Hardware.Compucolor2.Sim.SDL
+    
 executables:
   compucolor2-font:
-    main: sim/font.hs
+    source-dirs: sim
+    main: font.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - sdl2
 
   compucolor2-screen:
-    main: sim/screen.hs
+    source-dirs: sim
+    main: screen.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - sdl2
 
   compucolor2-cpu-screen:
-    main: sim/cpu-screen.hs
+    source-dirs: sim
+    main: cpu-screen.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - sdl2
 
   compucolor2-cpu-screen-verilator:
-    main: sim/cpu-screen-verilator.hs
+    source-dirs: sim
+    main: cpu-screen-verilator.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - sdl2
     when:
@@ -127,14 +144,18 @@ executables:
         buildable: false
 
   compucolor2-cpu-textscreen:
-    main: sim/cpu-textscreen.hs
+    source-dirs: sim
+    main: cpu-textscreen.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - terminal
 
   compucolor2-cpu-textscreen-verilator:
-    main: sim/cpu-textscreen-verilator.hs
+    source-dirs: sim
+    main: cpu-textscreen-verilator.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - terminal
     when:
@@ -148,14 +169,18 @@ executables:
         buildable: false
 
   compucolor2-sim:
-    main: sim/sim.hs
+    source-dirs: sim
+    main: sim.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - sdl2
       
   compucolor2-verilator:
-    main: sim/verilator.hs
+    source-dirs: sim
+    main: verilator.hs
     dependencies:
+      - clash-compucolor2
       - retroclash-sim
       - sdl2
       - extra
