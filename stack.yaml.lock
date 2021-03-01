@@ -44,6 +44,27 @@ packages:
     subdir: clash-lib
     url: https://github.com/clash-lang/clash-compiler/archive/fb903e0b227045e387d5df6ed83009948c403d33.tar.gz
 - completed:
+    hackage: ghc-typelits-knownnat-0.7.4@sha256:f0af4581223edf0171e2121ab13fe8603952760ecaa0189f70cd351567fbb544,4820
+    pantry-tree:
+      size: 602
+      sha256: 9c71e93d6ba248d6f1668f44489ada40f35c5fced55457ce22cff37e7b30da89
+  original:
+    hackage: ghc-typelits-knownnat-0.7.4
+- completed:
+    hackage: ghc-typelits-extra-0.4.2@sha256:cc986554a4483e92795589dc02aa1e0bd41daf89b962c56c2a48ff2f66e88aeb,4887
+    pantry-tree:
+      size: 682
+      sha256: 41f2f081c329ef6855232f4a43200dc0a0ac9a98c04f3ee3bfb630ef83a79ddd
+  original:
+    hackage: ghc-typelits-extra-0.4.2
+- completed:
+    hackage: ghc-typelits-natnormalise-0.7.3@sha256:fc58d0e1f20d97129aa6ca86b4f7f00c219af5e5d6547dd1bc8696fb6a3fc9b8,3516
+    pantry-tree:
+      size: 609
+      sha256: 8b987216e86d982fdb467fc5489f1a34aa1d7683f5cd2973cd0bd21bdfd97764
+  original:
+    hackage: ghc-typelits-natnormalise-0.7.3
+- completed:
     hackage: arrows-0.4.4.2@sha256:a260222b766da922657e302aa7c0409451913e1e503798a47a213a61ba382460,1235
     pantry-tree:
       size: 1035
@@ -142,7 +163,7 @@ packages:
     hackage: dependent-map-0.4.0.0
 snapshots:
 - completed:
-    size: 563099
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/17/2.yaml
-    sha256: 92b1a17e31d0a978fca4bf270305d4d1dd8092271bf60eafbc9349c890854026
-  original: lts-17.2
+    size: 532413
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/21.yaml
+    sha256: 7b5cac89352fa4a88606dc6cb250aee9291f21e2e988d464065f5aa51f5de33d
+  original: lts-16.21

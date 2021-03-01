@@ -57,7 +57,7 @@ crt5027 frameEnd cmd = (dataOut, crtOut)
 
     step (cmd, blink, blinkState) = do
         for_ cmd $ \case
-            WritePort 0x6 y -> lastRow .= bitCoerce (truncateB y)
+            WritePort 0x6 y -> lastRow .= bitCoerce (resize y)
             WritePort 0xb y -> lastRow %= nextIdx
             WritePort 0xc x -> cursorX .= x
             WritePort 0xd y -> cursorY .= y
