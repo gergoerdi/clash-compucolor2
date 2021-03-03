@@ -8,6 +8,7 @@ import RetroClash.Sim.SDL
 
 import Hardware.Compucolor2.Sim
 import Hardware.Compucolor2.Video
+import Hardware.Compucolor2.Video.Plot
 import Hardware.Compucolor2.CRT5027
 
 import Data.Array.IO
@@ -30,17 +31,21 @@ renderScreen fontROM vidRAM = do
           (tall, c) = bitCoerce char :: (Bool, Unsigned 7)
           (isPlot, (blink :: Bool), back, fore) = bitCoerce attr
 
-          pixel = if isPlot then plotPixel else glyphPixel
+          pixel = bitToBool $ msb $ block `shiftL` fromIntegral x0
+          block = if isPlot then plotBlock else glyphBlock
 
-          plotPixel = testBit (char `shiftR` fromIntegral (half y0)) (if x0 < 3 then 0 else 4)
+          (halfY0, _) = bitCoerce @_ @(Index (FontHeight `Div` 2), Bit) y0
 
-          glyphPixel = bitToBool $ msb $ glyphRow `shiftL` fromIntegral x0
+          plotBlock = stretchRow (rowsOf char0 !! halfY0) (rowsOf char1 !! halfY0)
+            where
+              (char1, char0) = bitCoerce char
+
+          glyphBlock = fontROM ! glyphAddr
             where
               y0'
-                | tall = half y0 + if odd y1 then 4 else 0
+                | tall = bitCoerce (odd y1, halfY0)
                 | otherwise = y0
               glyphAddr = bitCoerce (c, y0')
-              glyphRow = fontROM ! glyphAddr
 
           (r, g, b) = toColor $ if pixel then fore else back
           checker = if even x1 `xor` even y1 then 0x60 else minBound
