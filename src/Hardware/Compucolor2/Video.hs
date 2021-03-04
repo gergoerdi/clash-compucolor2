@@ -27,6 +27,9 @@ type TextSize = TextWidth * TextHeight
 type VidSize = TextSize * 2
 type VidAddr = Index VidSize
 
+type FontWidth = 6
+type FontHeight = 8
+
 -- | 40 MHz clock, needed for the VGA mode we use.
 createDomain vSystem{vName="Dom40", vPeriod = hzToPeriod 40_000_000}
 
@@ -146,14 +149,12 @@ plotRom
     => DSignal dom n (Unsigned 8)
     -> DSignal dom n (Index FontHeight)
     -> DSignal dom (n + 1) (Unsigned 8)
-plotRom char row = stretchRow <$> col1 <*> col2
+plotRom char row = stretchRow <$> b1 <*> b2
   where
-    (char2, char1) = D.unbundle . fmap bitCoerce $ char
+    (hi, lo) = D.unbundle . fmap splitChar $ char
+    row' = halfIndex <$> row
 
-    col1 = delayedRom (rom $(TH.lift plots)) $ toAddr <$> char1 <*> row
-    col2 = delayedRom (rom $(TH.lift plots)) $ toAddr <$> char2 <*> row
+    b1 = delayedRom (rom $(TH.lift plots)) $ plotAddr <$> lo <*> row'
+    b2 = delayedRom (rom $(TH.lift plots)) $ plotAddr <$> hi <*> row'
 
-    toAddr :: Unsigned 4 -> Index 8 -> Unsigned (4 + CLog 2 (FontHeight `Div` 2))
-    toAddr char row = bitCoerce (char, row')
-      where
-        (row', _) = bitCoerce @_ @(Index (FontHeight `Div` 2), Bit) row
+    toAddr x row' = bitCoerce (x, row')
