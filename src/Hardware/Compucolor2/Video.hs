@@ -104,6 +104,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     rgb = do
         x1 <- delayI Nothing x1
         y1 <- delayI Nothing y1
+        y0 <- delayI Nothing y0
         cursor <- delayI Nothing $ fromSignal cursor
         blink <- delayI False blink
         pixel <- bitToBool <$> pixel
@@ -111,12 +112,19 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         back <- delayI 0 back
 
         pure $ case liftA2 (,) x1 y1 of
-            Nothing -> (0x30, 0x30, 0x30)
-            Just (x1, y1) -> fromBGR $ if pixel `xor` (isCursor || blink) then fore else back
+            Nothing -> border
+            Just (x1, y1)
+              | isCursor -> white
+              | pixel -> if isJust cursor && blink then black else fromBGR fore
+              | otherwise -> fromBGR back
               where
-                isCursor = cursor == Just (x1', y1')
+                isCursor = cursor == Just (x1', y1') && (y0 == Just minBound || y0 == Just maxBound)
                 x1' = fromIntegral @(Index TextWidth) x1
                 y1' = fromIntegral @(Index TextHeight) y1
+      where
+        white = (0xff, 0xff, 0xff)
+        black = (0x00, 0x00, 0x00)
+        border = (0x30, 0x30, 0x30)
 
 fromBGR :: (Bounded r, Bounded g, Bounded b) => Unsigned 3 -> (r, g, b)
 fromBGR (bitCoerce -> (b, g, r)) = (stretch r, stretch g, stretch b)
