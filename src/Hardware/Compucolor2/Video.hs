@@ -49,12 +49,12 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     )
   where
     VGADriver{..} = vgaDriver vga800x600at60
-    (fromSignal -> textX, fromSignal -> glyphX) = scale (SNat @FontWidth) . fst . scale (SNat @2) . center $ vgaX
-    (fromSignal -> textY0, fromSignal -> glyphY) = scale (SNat @FontHeight) . fst . scale (SNat @2) . center $ vgaY
-    textY = scroll <$> fromSignal scrollOffset <*> textY0
+    (fromSignal -> x1, fromSignal -> x0) = scale (SNat @FontWidth) . fst . scale (SNat @2) . center $ vgaX
+    (fromSignal -> rawY1, fromSignal -> y0) = scale (SNat @FontHeight) . fst . scale (SNat @2) . center $ vgaY
+    y1 = scroll <$> fromSignal scrollOffset <*> rawY1
 
-    vblank = isNothing <$> textY
-    hblank = isNothing <$> textX
+    vblank = isNothing <$> y1
+    hblank = isNothing <$> x1
     frameEnd = liftD (isRising False) vblank
 
     extAddr' = schedule <$> hblank <*> extAddr
@@ -65,8 +65,8 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
             return addr
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr'
 
-    newChar = liftD (isRising False) $ glyphX .== Just 0
-    intAddr = guardA newChar $ bitCoerce <$> (liftA2 (,) <$> textY <*> textX)
+    newChar = liftD (isRising False) $ x0 .== Just 0
+    intAddr = guardA newChar $ bitCoerce <$> (liftA2 (,) <$> y1 <*> x1)
 
     frameBuf extAddr = sharedDelayedRW ram $
         extAddr `withWrite` extWrite :>
@@ -79,43 +79,43 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     extRead2 :> attrRead :> Nil = frameBuf extAddr2
     extRead = extRead1 .<|>. extRead2
 
-    char = delayedRegister 0 (.|>. charRead)
-    (isTall, glyphAddr) = D.unbundle $ bitCoerce <$> char
+    char@plotAddr = delayedRegister 0 (.|>. charRead)
+    (isTall, fontAddr) = D.unbundle $ bitCoerce <$> char
 
     attr = delayedRegister 0 (.|>. attrRead)
     (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, _, _, _) <$> attr
 
-    glyphY' = do
-        y <- delayI Nothing glyphY .<| 0
-        ty <- delayI Nothing textY .<| 0
+    y0' = do
+        y0 <- delayI Nothing y0 .<| 0
+        y1 <- delayI Nothing y1 .<| 0
         isTall <- isTall
-        pure $ if isTall then half y + (if odd ty then 4 else 0) else y
+        pure $ if isTall then bitCoerce (lsb y1, halfIndex y0) else y0
 
     nextBlock = enable (delayI False $ isJust <$> charRead) $
         mux (delayI False isPlot)
-          (plotRom char (delayI Nothing glyphY .<| 0))
-          (fontRom glyphAddr glyphY')
+          (plotRom plotAddr (delayI Nothing y0 .<| 0))
+          (fontRom fontAddr y0')
     block = enable (delayI False newChar) $ delayedRegister 0 (.|>. nextBlock)
 
-    newCol = liftD (changed Nothing) glyphX
+    newCol = liftD (changed Nothing) x0
     pixel = liftD2 shifterL block (delayI False newCol)
 
     rgb = do
-        x <- delayI Nothing textX
-        y <- delayI Nothing textY
+        x1 <- delayI Nothing x1
+        y1 <- delayI Nothing y1
         cursor <- delayI Nothing $ fromSignal cursor
         blink <- delayI False blink
         pixel <- bitToBool <$> pixel
         fore <- delayI 0 fore
         back <- delayI 0 back
 
-        pure $ case liftA2 (,) x y of
+        pure $ case liftA2 (,) x1 y1 of
             Nothing -> (0x30, 0x30, 0x30)
-            Just (x, y) -> fromBGR $ if pixel `xor` (isCursor || blink) then fore else back
+            Just (x1, y1) -> fromBGR $ if pixel `xor` (isCursor || blink) then fore else back
               where
-                isCursor = cursor == Just (x', y')
-                x' = fromIntegral @(Index TextWidth) x
-                y' = fromIntegral @(Index TextHeight) y
+                isCursor = cursor == Just (x1', y1')
+                x1' = fromIntegral @(Index TextWidth) x1
+                y1' = fromIntegral @(Index TextHeight) y1
 
 fromBGR :: (Bounded r, Bounded g, Bounded b) => Unsigned 3 -> (r, g, b)
 fromBGR (bitCoerce -> (b, g, r)) = (stretch r, stretch g, stretch b)
@@ -147,7 +147,7 @@ fontRom char row = delayedRom (fmap unpack . romFilePow2 "_build/chargen.uf6.bin
 plotRom
     :: (HiddenClockResetEnable dom)
     => DSignal dom n (Unsigned 8)
-    -> DSignal dom n (Index FontHeight)
+    -> DSignal dom n (Index 8)
     -> DSignal dom (n + 1) (Unsigned 8)
 plotRom char row = stretchRow <$> b1 <*> b2
   where
@@ -156,5 +156,3 @@ plotRom char row = stretchRow <$> b1 <*> b2
 
     b1 = delayedRom (rom $(TH.lift plots)) $ plotAddr <$> lo <*> row'
     b2 = delayedRom (rom $(TH.lift plots)) $ plotAddr <$> hi <*> row'
-
-    toAddr x row' = bitCoerce (x, row')

@@ -32,7 +32,7 @@ renderScreen fontROM vidRAM = do
           (isPlot, (blink :: Bool), back, fore) = bitCoerce attr
 
           pixel = bitToBool $ msb $ block `shiftL` fromIntegral x0
-          block = if isPlot then plotBlock else glyphBlock
+          block = if isPlot then plotBlock else fontBlock
 
           halfY0 = halfIndex y0
 
@@ -40,7 +40,7 @@ renderScreen fontROM vidRAM = do
             where
               (char1, char0) = splitChar char
 
-          glyphBlock = fontROM ! glyphAddr
+          fontBlock = fontROM ! glyphAddr
             where
               y0'
                 | tall = bitCoerce (odd y1, halfY0)
