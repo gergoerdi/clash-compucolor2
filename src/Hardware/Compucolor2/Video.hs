@@ -68,7 +68,10 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
             return addr
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr'
 
-    intAddr = guardA newChar $ bitCoerce <$> (liftA2 (,) <$> y1 <*> x1)
+    intAddr = guardA newChar $ liftA2 toAddr <$> x1 <*> y1
+      where
+        toAddr :: Index TextWidth -> Index TextHeight -> Index TextSize
+        toAddr x1 y1 = bitCoerce (y1, x1)
 
     frameBuf extAddr = sharedDelayedRW ram $
         extAddr `withWrite` extWrite :>
@@ -93,12 +96,10 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         isTall <- isTall
         pure $ if isTall then bitCoerce (lsb y1, halfIndex y0) else y0
 
-    nextBlock = enable (delayI False $ isJust <$> charRead) $
+    block = enable (delayI False newChar) $
         mux (delayI False isPlot)
           (plotRom plotAddr (delayI Nothing y0 .<| 0))
           (fontRom fontAddr y0')
-    block = enable (delayI False newChar) $ delayedRegister 0 (.|>. nextBlock)
-
     pixel = liftD2 shifterL block (delayI False newCol)
 
     rgb = do
