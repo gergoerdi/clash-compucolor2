@@ -137,8 +137,8 @@ fontRom
     :: (HiddenClockResetEnable dom)
     => DSignal dom n (Unsigned 7)
     -> DSignal dom n (Index FontHeight)
-    -> DSignal dom (n + 1) (Unsigned 8)
-fontRom char row = delayedRom (fmap unpack . romFilePow2 "_build/chargen.uf6.bin") $
+    -> DSignal dom (n + 1) (BitVector 8)
+fontRom char row = delayedRom (romFilePow2 "_build/chargen.uf6.bin") $
     toAddr <$> char <*> row
   where
     toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
@@ -148,7 +148,7 @@ plotRom
     :: (HiddenClockResetEnable dom)
     => DSignal dom n (Unsigned 8)
     -> DSignal dom n (Index 8)
-    -> DSignal dom (n + 1) (Unsigned 8)
+    -> DSignal dom (n + 1) (BitVector 8)
 plotRom char row = stretchRow <$> b1 <*> b2
   where
     (hi, lo) = D.unbundle . fmap splitChar $ char

@@ -16,7 +16,7 @@ import Data.Array (Array, (!))
 import Data.Word
 
 renderScreen
-    :: Array (Index 1024) (Unsigned 8)
+    :: Array (Index 1024) (BitVector 8)
     -> IOArray VidAddr (Unsigned 8)
     -> IO (Rasterizer (TextWidth * FontWidth) (TextHeight * FontHeight))
 renderScreen fontROM vidRAM = do

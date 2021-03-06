@@ -11,7 +11,7 @@ rowsOf = reverse . bitCoerce
 plots :: Vec (16 * 4) Bit
 plots = concatMap rowsOf indicesI
 
-stretchRow :: Bit -> Bit -> Unsigned 8
+stretchRow :: Bit -> Bit -> BitVector 8
 stretchRow b1 b2 = bitCoerce $
     replicate (SNat @3) b1 ++
     replicate (SNat @3) b2 ++
