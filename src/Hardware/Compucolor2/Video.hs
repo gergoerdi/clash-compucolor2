@@ -139,10 +139,7 @@ fontRom
     -> DSignal dom n (Index FontHeight)
     -> DSignal dom (n + 1) (BitVector 8)
 fontRom char row = delayedRom (romFilePow2 "_build/chargen.uf6.bin") $
-    toAddr <$> char <*> row
-  where
-    toAddr :: Unsigned 7 -> Index 8 -> Unsigned (7 + CLog 2 FontHeight)
-    toAddr char row = bitCoerce (char, row)
+    bitCoerce <$> D.bundle (char, row)
 
 plotRom
     :: (HiddenClockResetEnable dom)
