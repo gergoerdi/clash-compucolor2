@@ -57,6 +57,9 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     hblank = isNothing <$> x1
     frameEnd = liftD (isRising False) vblank
 
+    newCol = liftD (changed Nothing) x0
+    newChar = liftD (changed Nothing) x1
+
     extAddr' = schedule <$> hblank <*> extAddr
       where
         schedule hblank extAddr = do
@@ -65,7 +68,6 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
             return addr
     (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr'
 
-    newChar = liftD (isRising False) $ x0 .== Just 0
     intAddr = guardA newChar $ bitCoerce <$> (liftA2 (,) <$> y1 <*> x1)
 
     frameBuf extAddr = sharedDelayedRW ram $
@@ -97,7 +99,6 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
           (fontRom fontAddr y0')
     block = enable (delayI False newChar) $ delayedRegister 0 (.|>. nextBlock)
 
-    newCol = liftD (changed Nothing) x0
     pixel = liftD2 shifterL block (delayI False newCol)
 
     rgb = do
