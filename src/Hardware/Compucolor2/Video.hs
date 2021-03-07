@@ -27,9 +27,6 @@ type TextSize = TextWidth * TextHeight
 type VidSize = TextSize * 2
 type VidAddr = Index VidSize
 
-type FontWidth = 6
-type FontHeight = 8
-
 -- | 40 MHz clock, needed for the VGA mode we use.
 createDomain vSystem{vName="Dom40", vPeriod = hzToPeriod 40_000_000}
 
@@ -84,17 +81,16 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     extRead2 :> attrRead :> Nil = frameBuf extAddr2
     extRead = extRead1 .<|>. extRead2
 
-    char@plotAddr = delayedRegister 0 (.|>. charRead)
+    char@plotAddr = charRead .<| 0
     (isTall, fontAddr) = D.unbundle $ bitCoerce <$> char
 
     attr = delayedRegister 0 (.|>. attrRead)
     (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, _, _, _) <$> attr
 
-    y0' = do
-        y0 <- delayI Nothing y0 .<| 0
-        y1 <- delayI Nothing y1 .<| 0
-        isTall <- isTall
-        pure $ if isTall then bitCoerce (lsb y1, halfIndex y0) else y0
+    y0' = mux isTall tall short .<| 0
+      where
+        short = delayI Nothing y0
+        tall = delayI Nothing $ liftA2 toTall <$> y1 <*> y0
 
     block = enable (delayI False newChar) $
         mux (delayI False isPlot)

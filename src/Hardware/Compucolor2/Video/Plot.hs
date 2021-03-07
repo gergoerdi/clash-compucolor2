@@ -1,6 +1,11 @@
 module Hardware.Compucolor2.Video.Plot where
 
 import Clash.Prelude
+import RetroClash.Utils (halfIndex)
+import Hardware.Compucolor2.CRT5027 (TextWidth, TextHeight)
+
+type FontWidth = 6
+type FontHeight = 8
 
 splitChar :: Unsigned 8 -> (Index 16, Index 16)
 splitChar = bitCoerce
@@ -19,3 +24,6 @@ stretchRow b1 b2 = bitCoerce $
 
 plotAddr :: Index 16 -> Index 4 -> Unsigned 6
 plotAddr halfChar row = bitCoerce (halfChar, row)
+
+toTall :: Index TextHeight -> Index FontHeight -> Index FontHeight
+toTall y1 y0 = bitCoerce (lsb y1, halfIndex y0)
