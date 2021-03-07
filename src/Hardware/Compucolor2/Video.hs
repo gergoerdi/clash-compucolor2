@@ -56,6 +56,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
 
     newCol = liftD (changed Nothing) x0
     newChar = liftD (changed Nothing) x1
+    visible = isJust <$> x1 .&&. isJust <$> y1
 
     extAddr' = schedule <$> hblank <*> extAddr
       where
@@ -98,30 +99,30 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
           (fontRom fontAddr y0')
     pixel = liftD2 shifterL block (delayI False newCol)
 
-    rgb = do
-        x1 <- delayI Nothing x1
-        y1 <- delayI Nothing y1
-        y0 <- delayI Nothing y0
-        cursor <- delayI Nothing $ fromSignal cursor
-        blink <- delayI False blink
-        pixel <- bitToBool <$> pixel
-        fore <- delayI (0, 0, 0) fore
-        back <- delayI (0, 0, 0) back
+    border = (0x30, 0x30, 0x30)
+    white = pure (1, 1, 1)
+    black = pure (0, 0, 0)
 
-        pure $ case liftA2 (,) x1 y1 of
-            Nothing -> border
-            Just (x1, y1)
-              | isCursor -> white
-              | pixel -> if isJust cursor && blink then black else fromBGR fore
-              | otherwise -> fromBGR back
-              where
-                isCursor = cursor == Just (x1', y1') && (y0 == Just minBound || y0 == Just maxBound)
-                x1' = fromIntegral @(Index TextWidth) x1
-                y1' = fromIntegral @(Index TextHeight) y1
-      where
-        white = (0xff, 0xff, 0xff)
-        black = (0x00, 0x00, 0x00)
-        border = (0x30, 0x30, 0x30)
+    palette = D.bundle $
+        back :>
+        mux blinked black fore :>
+        Nil
+
+    (blinked, isCursor) = D.unbundle $ do
+        cursor <- delayI Nothing $ fromSignal cursor
+        x1 <- delayI Nothing x1 .<| 0
+        y1 <- delayI Nothing y1 .<| 0
+        y0 <- delayI Nothing y0
+        blink <- blink
+        pure $
+            let atCursor = cursor == Just (fromIntegral x1, fromIntegral y1)
+                cursorRow = any (y0 ==) [Just minBound, Just maxBound]
+            in (blink && isJust cursor, atCursor && cursorRow)
+
+    rgb =
+        mux (not <$> delayI False visible) (pure border) $ fmap fromBGR $
+        mux isCursor white $
+        palette .!!. pixel
 
 scroll :: (SaturatingNum a) => a -> Maybe a -> Maybe a
 scroll offset x = satAdd SatWrap offset <$> x
