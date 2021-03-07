@@ -63,7 +63,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
             (urgent, addr) <- extAddr
             guard $ urgent || hblank
             return addr
-    (extAddr1, extAddr2) = D.unbundle $ unbraid <$> extAddr'
+    extAddr1 :> extAddr2 :> Nil = D.unbundle $ unbraid <$> extAddr'
 
     intAddr = guardA newChar $ liftA2 toAddr <$> x1 <*> y1
       where
@@ -131,13 +131,6 @@ fromBGR (bitCoerce -> (b, g, r)) = (stretch r, stretch g, stretch b)
 
 scroll :: (SaturatingNum a) => a -> Maybe a -> Maybe a
 scroll offset x = satAdd SatWrap offset <$> x
-
-unbraid
-    :: (KnownNat n, 1 <= 2 * n, (CLog 2 (2 * n)) ~ (CLog 2 n + 1))
-    =>  Maybe (Index (2 * n))
-    -> (Maybe (Index n), Maybe (Index n))
-unbraid Nothing = (Nothing, Nothing)
-unbraid (Just addr) = let (addr', sel) = bitCoerce addr in (addr' <$ guard (not sel), addr' <$ guard sel)
 
 fontRom
     :: (HiddenClockResetEnable dom)
