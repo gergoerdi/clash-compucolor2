@@ -85,7 +85,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     (isTall, fontAddr) = D.unbundle $ bitCoerce <$> char
 
     attr = delayedRegister 0 (.|>. attrRead)
-    (isPlot, blink, back, fore) = D.unbundle $ bitCoerce @_ @(_, _, _, _) <$> attr
+    (isPlot, blink, back, fore) = D.unbundle $ attributes <$> attr
 
     y0' = mux isTall tall short .<| 0
       where
@@ -105,8 +105,8 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         cursor <- delayI Nothing $ fromSignal cursor
         blink <- delayI False blink
         pixel <- bitToBool <$> pixel
-        fore <- delayI 0 fore
-        back <- delayI 0 back
+        fore <- delayI (0, 0, 0) fore
+        back <- delayI (0, 0, 0) back
 
         pure $ case liftA2 (,) x1 y1 of
             Nothing -> border
@@ -122,12 +122,6 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         white = (0xff, 0xff, 0xff)
         black = (0x00, 0x00, 0x00)
         border = (0x30, 0x30, 0x30)
-
-fromBGR :: (Bounded r, Bounded g, Bounded b) => Unsigned 3 -> (r, g, b)
-fromBGR (bitCoerce -> (b, g, r)) = (stretch r, stretch g, stretch b)
-  where
-    stretch False = minBound
-    stretch True = maxBound
 
 scroll :: (SaturatingNum a) => a -> Maybe a -> Maybe a
 scroll offset x = satAdd SatWrap offset <$> x

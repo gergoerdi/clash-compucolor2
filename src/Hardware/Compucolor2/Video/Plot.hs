@@ -27,3 +27,12 @@ plotAddr halfChar row = bitCoerce (halfChar, row)
 
 toTall :: Index TextHeight -> Index FontHeight -> Index FontHeight
 toTall y1 y0 = bitCoerce (lsb y1, halfIndex y0)
+
+attributes :: Unsigned 8 -> (Bool, Bool, (Bit, Bit, Bit), (Bit, Bit, Bit))
+attributes = bitCoerce
+
+fromBGR :: (Bounded r, Bounded g, Bounded b) => (Bit, Bit, Bit) -> (r, g, b)
+fromBGR (b, g, r) = (stretch r, stretch g, stretch b)
+  where
+    stretch 0 = minBound
+    stretch 1 = maxBound

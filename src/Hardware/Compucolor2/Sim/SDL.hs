@@ -29,7 +29,7 @@ renderScreen fontROM vidRAM = do
           char = vidRAM ! charAddr
           attr = vidRAM ! (charAddr + 1)
           (isTall, c) = bitCoerce char :: (Bool, Unsigned 7)
-          (isPlot, (blink :: Bool), back, fore) = bitCoerce attr
+          (isPlot, blink, back, fore) = attributes attr
 
           pixel = bitToBool $ msb $ block `shiftL` fromIntegral x0
           block = if isPlot then plotBlock else fontBlock
@@ -45,7 +45,7 @@ renderScreen fontROM vidRAM = do
               y0' = if isTall then toTall y1 y0 else y0
               glyphAddr = bitCoerce (c, y0')
 
-          (r, g, b) = toColor $ if pixel then fore else back
+          (r, g, b) = fromBGR $ if pixel then fore else back
           checker = if even x1 `xor` even y1 then 0x60 else minBound
       in (r, g `max` checker, b)
 
@@ -56,9 +56,3 @@ videoParams = MkVideoParams
     , screenRefreshRate = 60
     , reportFPS = True
     }
-
-toColor :: (Bit, Bit, Bit) -> (Word8, Word8, Word8)
-toColor (b, g, r) = (stretch r, stretch g, stretch b)
-  where
-    stretch 0 = minBound
-    stretch 1 = maxBound
