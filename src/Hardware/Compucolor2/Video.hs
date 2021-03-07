@@ -70,15 +70,15 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
         toAddr :: Index TextWidth -> Index TextHeight -> Index TextSize
         toAddr x1 y1 = bitCoerce (y1, x1)
 
-    frameBuf extAddr = sharedDelayedRW ram $
+    videoMem extAddr = sharedDelayedRW ram $
         extAddr `withWrite` extWrite :>
         noWrite intAddr :>
         Nil
       where
         ram = singlePort $ delayedRam (blockRam1 NoClearOnReset (SNat @TextSize) 0)
 
-    extRead1 :> charRead :> Nil = frameBuf extAddr1
-    extRead2 :> attrRead :> Nil = frameBuf extAddr2
+    extRead1 :> charRead :> Nil = videoMem extAddr1
+    extRead2 :> attrRead :> Nil = videoMem extAddr2
     extRead = extRead1 .<|>. extRead2
 
     char@plotAddr = charRead .<| 0
