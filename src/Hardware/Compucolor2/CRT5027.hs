@@ -12,7 +12,7 @@ import RetroClash.Utils
 import RetroClash.Barbies
 
 import Control.Monad.State
-import Data.Foldable (for_)
+import Data.Traversable (for)
 import Barbies.TH
 import Control.Lens hiding (Index)
 
@@ -56,16 +56,26 @@ crt5027 frameEnd cmd = (dataOut, crtOut)
     (dataOut, bunbundle -> crtOut) = mealyStateB step initS (cmd, blink, blinkState)
 
     step (cmd, blink, blinkState) = do
-        for_ cmd $ \case
-            WritePort 0x6 y -> lastRow .= bitCoerce (resize y)
-            WritePort 0xb y -> lastRow %= nextIdx
-            WritePort 0xc x -> cursorX .= x
-            WritePort 0xd y -> cursorY .= y
-            _ -> return ()
+        dataOut <- for cmd $ \case
+            ReadPort 0x8 -> use cursorX
+            ReadPort 0x9 -> use cursorY
+            WritePort 0x6 y -> do
+                lastRow .= bitCoerce (resize y)
+                return 0x00
+            WritePort 0xb y -> do
+                lastRow %= nextIdx
+                return 0x00
+            WritePort 0xc x -> do
+                cursorX .= x
+                return 0x00
+            WritePort 0xd y -> do
+                cursorY .= y
+                return 0x00
+            _ -> return 0x00
 
         scrollOffset <- nextIdx <$> use lastRow
         x <- use cursorX
         y <- use cursorY
         let cursor = (x, y) <$ guard blinkState
 
-        return (Just 0x00, MkOutput{..})
+        return (dataOut, MkOutput{..})
