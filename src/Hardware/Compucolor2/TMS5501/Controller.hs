@@ -103,8 +103,8 @@ controller inp@MkInput{..} tick cmd = do
             traverse_ clearPending pending
             return (Just $ toRST pending, Nothing)
           else do
-            dataOut <- exec inp tick cmd
-            return (Nothing, Just dataOut)
+            dataOut <- traverse (exec inp tick) cmd
+            return (Nothing, dataOut)
 
     -- This is after handling the `ack`, since it could have cleared the previously pending irq
     irq <- isJust <$> getPending
@@ -112,19 +112,19 @@ controller inp@MkInput{..} tick cmd = do
     parallelOut <- complement <$> use parallelBuf
     return (dataOut, MkOutput{..})
 
-exec :: Pure Input -> Bool -> Maybe (PortCommand Port Value) -> State S Value
+exec :: Pure Input -> Bool -> PortCommand Port Value -> State S Value
 exec inp@MkInput{..} tick cmd = case cmd of
-    Just (ReadPort 0x0) -> do
+    ReadPort 0x0 -> do
         rxReady .= False
         use rxBuf
-    Just (ReadPort 0x1) -> return parallelIn
-    Just (ReadPort 0x2) -> do
+    ReadPort 0x1 -> return parallelIn
+    ReadPort 0x2 -> do
         pending <- getPending
         traverse_ clearPending pending
         return $ toRST pending
-    Just (ReadPort 0x3) -> getStatus inp
+    ReadPort 0x3 -> getStatus inp
 
-    Just (WritePort port x) -> (*> return 0x00) $ case port of
+    WritePort port x -> (*> return 0x00) $ case port of
         0x4 -> execDiscrete x
         0x5 -> return () -- TODO: UART set baud rate
         0x6 -> txBuf .= Just x
@@ -136,8 +136,6 @@ exec inp@MkInput{..} tick cmd = case cmd of
         0xc -> setTimer 3 x
         0xd -> setTimer 4 x
         _ -> return ()
-
-    _ -> return 0x00
 
 countdown :: Bool -> State S ()
 countdown tick = do

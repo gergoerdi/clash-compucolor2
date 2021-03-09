@@ -12,7 +12,6 @@ import RetroClash.Utils
 import RetroClash.Barbies
 
 import Control.Monad.State
-import Data.Traversable (for)
 import Barbies.TH
 import Control.Lens hiding (Index)
 
@@ -56,26 +55,20 @@ crt5027 frameEnd cmd = (dataOut, crtOut)
     (dataOut, bunbundle -> crtOut) = mealyStateB step initS (cmd, blink, blinkState)
 
     step (cmd, blink, blinkState) = do
-        dataOut <- for cmd $ \case
-            ReadPort 0x8 -> use cursorX
-            ReadPort 0x9 -> use cursorY
-            WritePort 0x6 y -> do
-                lastRow .= bitCoerce (resize y)
-                return 0x00
-            WritePort 0xb y -> do
-                lastRow %= nextIdx
-                return 0x00
-            WritePort 0xc x -> do
-                cursorX .= x
-                return 0x00
-            WritePort 0xd y -> do
-                cursorY .= y
-                return 0x00
-            _ -> return 0x00
-
+        dataOut <- traverse exec cmd
         scrollOffset <- nextIdx <$> use lastRow
         x <- use cursorX
         y <- use cursorY
         let cursor = (x, y) <$ guard blinkState
-
         return (dataOut, MkOutput{..})
+
+exec :: PortCommand (Index 16) (Unsigned 8) -> State S (Unsigned 8)
+exec cmd = case cmd of
+    ReadPort 0x8 -> use cursorX
+    ReadPort 0x9 -> use cursorY
+    WritePort port val -> (*> return 0x00) $ case port of
+        0x6 -> lastRow .= bitCoerce (resize val)
+        0xb -> lastRow %= nextIdx
+        0xc -> cursorX .= val
+        0xd -> cursorY .= val
+        _ -> return ()
