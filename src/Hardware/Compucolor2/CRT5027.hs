@@ -53,7 +53,7 @@ crt5027 frameEnd cmd = (dataOut, crtOut)
     blink = riseEveryWhen (SNat @32) frameEnd
     blinkState = oscillateWhen True blink
 
-    (dataOut, bunbundle -> crtOut) = unbundle . mealyState step initS . bundle $ (cmd, blink, blinkState)
+    (dataOut, bunbundle -> crtOut) = mealyStateB step initS (cmd, blink, blinkState)
 
     step (cmd, blink, blinkState) = do
         for_ cmd $ \case
