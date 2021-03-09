@@ -91,7 +91,7 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     y0' = mux isTall tall short .<| 0
       where
         short = delayI Nothing y0
-        tall = delayI Nothing $ liftA2 toTall <$> y1 <*> y0
+        tall = delayI Nothing $ liftA2 toTall <$> rawY1 <*> y0
 
     block = enable (delayI False newChar) $
         mux (delayI False isPlot)
