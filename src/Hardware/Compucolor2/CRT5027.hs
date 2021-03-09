@@ -36,7 +36,6 @@ initS = MkS
 declareBareB [d|
   data Output = MkOutput
       { cursor :: Maybe (Unsigned 8, Unsigned 8)
-      , blink :: Bool
       , scrollOffset :: Index TextHeight
       } |]
 
@@ -45,9 +44,9 @@ crt5027
     => Signal dom Bool
     -> Signal dom (Maybe (PortCommand (Index 16) (Unsigned 8)))
     -> ( Signal dom (Maybe (Unsigned 8))
-       , Signals dom Output
+       , (Signals dom Output, Signal dom Bool)
        )
-crt5027 frameEnd cmd = (dataOut, crtOut)
+crt5027 frameEnd cmd = (dataOut, (crtOut, blink))
   where
     blink = riseEveryWhen (SNat @32) frameEnd
     blinkState = oscillateWhen True blink
