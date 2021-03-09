@@ -50,8 +50,8 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
     (fromSignal -> rawY1, fromSignal -> y0) = scale (SNat @FontHeight) . fst . scale (SNat @2) . center $ vgaY
     y1 = scroll <$> fromSignal scrollOffset <*> rawY1
 
-    vblank = isNothing <$> y1
     hblank = isNothing <$> x1
+    vblank = isNothing <$> y1
     frameEnd = liftD (isRising False) vblank
 
     newCol = liftD (changed Nothing) x0
@@ -99,30 +99,29 @@ video CRT5027.MkOutput{..} (unsafeFromSignal -> extAddr) (unsafeFromSignal -> ex
           (fontRom fontAddr y0')
     pixel = liftD2 shifterL block (delayI False newCol)
 
-    border = (0x30, 0x30, 0x30)
-    white = pure (1, 1, 1)
-    black = pure (0, 0, 0)
+    border = pure (0x30, 0x30, 0x30)
 
-    palette = D.bundle $
-        back :>
-        mux blinked black fore :>
-        Nil
-
-    (blinked, isCursor) = D.unbundle $ do
+    (isBlinked, isCursor) = D.unbundle $ do
+        x1 <- fromIntegral <$> (delayI Nothing x1 .<| 0)
+        y1 <- fromIntegral <$> (delayI Nothing y1 .<| 0)
+        y0 <- delayI Nothing y0 .<| 0
         cursor <- delayI Nothing $ fromSignal cursor
-        x1 <- delayI Nothing x1 .<| 0
-        y1 <- delayI Nothing y1 .<| 0
-        y0 <- delayI Nothing y0
         blink <- blink
         pure $
-            let atCursor = cursor == Just (fromIntegral x1, fromIntegral y1)
-                cursorRow = any (y0 ==) [Just minBound, Just maxBound]
+            let atCursor = cursor == Just (x1, y1)
+                cursorRow = any (y0 ==) [minBound, maxBound]
             in (blink && isJust cursor, atCursor && cursorRow)
 
-    rgb =
-        mux (not <$> delayI False visible) (pure border) $ fmap fromBGR $
-        mux isCursor white $
-        palette .!!. pixel
+    white = (1, 1, 1)
+    black = (0, 0, 0)
+
+    palette = mux isCursor (pure $ repeat white) $ D.bundle $
+        back :>
+        mux isBlinked (pure black) fore :>
+        Nil
+
+    rgb = mux (not <$> delayI False visible) border $
+        fromBGR <$> palette .!!. pixel
 
 scroll :: (SaturatingNum a) => a -> Maybe a -> Maybe a
 scroll offset x = satAdd SatWrap offset <$> x
