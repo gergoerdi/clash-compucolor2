@@ -21,7 +21,7 @@ type TextHeight = 32
 data S = MkS
     { _cursorX :: Unsigned 8
     , _cursorY :: Unsigned 8
-    , _lastRow :: Index TextHeight
+    , _lastLine :: Index TextHeight
     }
     deriving (Show, Generic, NFDataX)
 makeLenses ''S
@@ -30,7 +30,7 @@ initS :: S
 initS = MkS
     { _cursorX = 0
     , _cursorY = 0
-    , _lastRow = 0
+    , _lastLine = 0
     }
 
 declareBareB [d|
@@ -55,7 +55,7 @@ crt5027 frameEnd cmd = (dataOut, (crtOut, blink))
 
     step (cmd, blink, blinkState) = do
         dataOut <- traverse exec cmd
-        scrollOffset <- nextIdx <$> use lastRow
+        scrollOffset <- nextIdx <$> use lastLine
         x <- use cursorX
         y <- use cursorY
         let cursor = (x, y) <$ guard blinkState
@@ -66,8 +66,8 @@ exec cmd = case cmd of
     ReadPort 0x8 -> use cursorX
     ReadPort 0x9 -> use cursorY
     WritePort port val -> (*> return 0x00) $ case port of
-        0x6 -> lastRow .= bitCoerce (resize val)
-        0xb -> lastRow %= nextIdx
+        0x6 -> lastLine .= bitCoerce (resize val)
+        0xb -> lastLine %= nextIdx
         0xc -> cursorX .= val
         0xd -> cursorY .= val
         _ -> return ()
