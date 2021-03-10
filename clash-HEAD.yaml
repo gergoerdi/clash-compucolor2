@@ -1,18 +1,14 @@
 name: clash-HEAD
-resolver: lts-16.21
+resolver: lts-17.2
 
 packages:
   - github: clash-lang/clash-compiler
-    commit: fb903e0b227045e387d5df6ed83009948c403d33
+    commit: ce3d8fd1da5c9ef27bb006a2eefd3b682e8a3cd5
     subdirs:
       - clash-ghc
       - clash-prelude
       - clash-lib
       
-  - ghc-typelits-knownnat-0.7.4
-  - ghc-typelits-extra-0.4.2
-  - ghc-typelits-natnormalise-0.7.3
-
   - arrows-0.4.4.2
   - Stream-0.4.7.2
   - lazysmallcheck-0.6
