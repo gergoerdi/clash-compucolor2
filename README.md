@@ -1,86 +1,117 @@
-# Space Invaders arcade machine
+# Compucolor II Home Computer
 
-This is a Clash implementation of the 1978 Space Invaders arcade
-machine by Taito.
+This is a Clash implementation of the 1977 Compucolor II home computer
+manifactured by the CompuColor Corporation until 1980.
 
-[![Click to play YouTube video](https://img.youtube.com/vi/k-1MVmX2ytI/0.jpg)](https://www.youtube.com/watch?v=k-1MVmX2ytI)
-
+![Compucolor II just booting up in simulation](vga-full-boot.png)
 
 ## Hardware architecture
 
 * **CPU**: Intel 8080.
-* **Video**: 256x224 monochrome at 60 FPS, backed by a 7168x8 bit
-  framebuffer. IRQs triggered on lines 96 and 224. The screen was
-  rotated 90 degrees to be in portrait orientation.
-* **Sound**: TI SN76477 connected to the CPU via two 8-bit ports
-* **Inputs**: coin deposit detector, two sets of buttons for starting the
-  game, and moving and firing, for two-player mode.
+
+* **Video**: SMC CRT 5027 video chip generates a 64⨯32 cell
+  screen. Each cell is either a character index into a built-in font
+  ROM, or a 2⨯4 bitmap with double-width pixels. Characters can
+  optionally be rendered at double height.
+
+  The CPU has two ways of accessing the backing 2K video RAM: slow
+  access (preempted by the video system) and fast access (leading to
+  video glitches in the meantime).
+
+* **IO**: TMS 5501 IO controller handles interrupt servicing, keyboard
+  input, serial IO and disk IO.
+
 
 ## Clash implementation
 
 * **CPU**: Implemented based on abstract descriptions of Intel 8080 ISA,
-  with no reference to real implementation. Not cycle-accurate, but
-  aims to pass various functional tests.
-* **Video**: Standard 640x480@60Hz VGA, with 25.175MHz pixel
-  clock. Logical "pixels" are scaled 2x2, but the layout is not
-  rotated to keep interrupt timings.
-* **Framebuffer**: The video system has priority over the CPU: memory
-  reads from the framebuffer area will block the CPU until the video
-  system is done reading.
-* **Sound**: Unimplemented.
-* **Inputs**:
-  * Direct pushbuttons
-  * PS/2 keyboard: `C` to deposit a coin, `Enter` to start
-    1P game, and `Left` / `Right` / `RCtrl` to move and fire with P1.
+  with no reference to real implementation. Instructions take the same
+  number of cycles as a real Intel 8080, which is needed for the tight
+  timing constraints of the floppy drive.
+
+* **Video**: Standard 800⨯600@60Hz VGA, with 40MHz pixel clock.
+  Logical "pixels" are scaled 2⨯2. Hardware cursor and vertical
+  scrolling is implemented via the CRT 5027.
+
+* **Framebuffer**: Since the video system needs access to both
+  even-addressed (character index) and odd-addressed (color etc.)
+  bytes, preferably in the same cycle, the framebuffer is split into
+  two 1K RAMs, one holding the even and the other holding the odd
+  addresses. The CPU reads/writes these through special logic handling
+  the least significant bit of the original (single-byte) address.
+
+* **IO**: The TMS 5501 IO controller is implemented fully: timers,
+  parallel IO, interrupt servicing and UART are all implemented based
+  on the original data sheet. Instead of the fixed clock divisor of
+  128 in the real TMS 5501 (designed for a 2 MHz clock), this
+  implementation divides into 64 μs regardless of the clock speed.
+
+* **Input**: PS/2 keyboard events are decoded into a virtual key
+  matrix, which is connected to the TMS 5501.
+  
+* **Disk drive**: Virtual "disk" served from a small block ROM,
+  connected to the serial port of the TMS 5501.
+  
+* **Turbo switch**: If unset, the CPU is slowed down by idling for 19
+  out of every 20 cycles. This way, even though it runs at the pixel
+  clock speed of 40 MHz, real-time games are still playable. 
+
 
 ## Limitations
 
-This implementation doesn't aim to be cycle-accurate; it wouldn't
-matter for much anyway, since the CPU runs at the VGA output pixel
-clock of 25 MHz, whereas the real cabinet ran at 2 MHz. Luckily, Space
-Invaders does all animations keyed to two 60 Hz timers triggered by
-the video system.
+Most of the programmable functionality of the CRT5027 video controller
+is missing. Some of it is not used by the Compucolor II anyway, since
+the output video mode's timings are set in stone. However, the
+Compucolor II does use the scrolling functions, so those will need to
+be implemented at some point.
 
-Sound is not implemented at all.
 
-The back-panel DIP switches are not yet mapped to anything.
+# Simulation
 
-# Building
+Simulations of several abstraction level are included. Most come in
+two flavors: using Clash, or using Verilator. The Verilator ones
+generally perform much better, but require installing Verilator and
+compiling with the `verilator` Cabal flag.
 
-Included are rudimentary Shake rules to build for various hobbyist
-FPGA dev boards:
+# Synthesizing
 
-* The Xilinx Spartan-6 based Papilio Pro or the Spartan-3 based
-Papilio One, both with the Arcade mega-wing. These use the Xilinx ISE
-toolchain.
+Included are Shake rules to build for various hobbyist FPGA dev
+boards:
 
-* The Xilinx Artrix-7 based Nexys A7. This uses the Xilinx Vivado
-toolchain.
+* The Xilinx Artrix-7 based Nexys A7 50T. This uses the Xilinx Vivado
+  toolchain.
+
+* TODO: The Xilinx Spartan-6 based Papilio Pro or the Spartan-3 based
+  Papilio One, both with the Arcade mega-wing. These use the Xilinx ISE
+  toolchain.
 
 Make a file called `build.mk` with content similar to the following:
 
 ```
-TARGET = papilio-pro-arcade
-CLASH = stack exec --
-ISE = ~/prog/docker/xilinx-14.7-ubuntu-12.04/run
+TARGET = nexys-a7-50t
+ISE = ~/prog/docker/xilinx-ubuntu-12.04/run
 VIVADO = ~/prog/docker/xilinx-2019.1-ubuntu-18.04/run
 ```
 
-The `CLASH`, `ISE` and `VIVADO` fields are to optionally wrap
-invocations of the Clash compiler and the Xilinx ISE / Vivado
-toolchain in case you want to run them via Stack, Docker, Nix, etc.
+The `ISE` and `VIVADO` fields are to optionally wrap invocations of
+the Xilinx ISE / Vivado toolchain in case you want to run them via
+Stack, Docker, Nix, etc.
 
-Then you can build for the Papilio Pro by running the included `mk`
-script.
+Then you can build for by running the included `mk` script.
 
 
 # Useful links
 
-* [Wikipedia](https://en.wikipedia.org/wiki/Space_Invaders)
-* [Computer Archeology's Space Invaders page](http://computerarcheology.com/Arcade/SpaceInvaders/)
-* [Original arcade machine schematics](https://www.robotron-2084.co.uk/manuals/invaders/taito_space_invader_l_shaped_board_schematics.pdf)
+* [Wikipedia](https://en.wikipedia.org/wiki/Compucolor_II)
+* [Oldcomputers.net](http://oldcomputers.net/compucolor-ii.html)
+* [Compucolor.org](http://www.compucolor.org/): all things Compucolor
+  II, including heaps of original documentation and a software
+  emulator written in JavaScript.
+* [CRT5027 page at the IntelliWiki](http://wiki.intellivision.us/index.php?title=TMS9927_CRT_Controller)
+* [TMS5501 datasheet](https://amaus.net/static/S100/TI/datasheet/Texas%20Instruments%20TMS5501%20Specification%20197608.pdf)
 * [Intel 8080 opcodes](http://pastraiser.com/cpu/i8080/i8080_opcodes.html)
 * [Intel 8080 opcodes](http://www.classiccmp.org/dunfield/r/8080.txt)
-* [Intel 8080 implementation in Clash](https://github.com/gergoerdi/clash-intel8080/)
+* [Monadic descriptions of CPUs in Clash](https://gergo.erdi.hu/blog/2018-09-30-composable_cpu_descriptions_in_c_ash,_and_wrap-up_of_retrochallenge_2018_09/)
+* [Integrating Verilator and Clash](https://gergo.erdi.hu/blog/2020-05-07-integrating_verilator_and_clash_via_cabal/)
+* [Nexys A7 FPGA dev board](https://reference.digilentinc.com/reference/programmable-logic/nexys-a7/start)
 * [Papilio Pro FPGA dev board](https://papilio.cc/index.php?n=Papilio.PapilioPro)
-* [Nexys A7 FPGA dev board](https://store.digilentinc.com/nexys-a7-fpga-trainer-board-recommended-for-ece-curriculum/)
