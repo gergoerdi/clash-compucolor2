@@ -87,7 +87,7 @@ controller inp@MkInput{..} tick cmd = do
     txNew <- use txBuf
 
     when txReady $ do
-        whenM (isJust <$> use txBuf) $ setInt 3
+        whenM (isJust <$> use txBuf) $ setInt 5
         txBuf .= Nothing
 
     for_ rxResult $ \x -> do
