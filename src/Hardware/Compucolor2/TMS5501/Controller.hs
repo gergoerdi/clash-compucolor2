@@ -100,7 +100,7 @@ controller inp@MkInput{..} tick cmd = do
         shouldAck <- use enableAck
         if shouldAck && ack then do
             pending <- getPending
-            traverse_ clearPending pending
+            traverse_ clearInt pending
             return (Just $ toRST pending, Nothing)
           else do
             dataOut <- traverse (exec inp tick) cmd
@@ -120,7 +120,7 @@ exec inp@MkInput{..} tick cmd = case cmd of
     ReadPort 0x1 -> return parallelIn
     ReadPort 0x2 -> do
         pending <- getPending
-        traverse_ clearPending pending
+        traverse_ clearInt pending
         return $ toRST pending
     ReadPort 0x3 -> getStatus inp
 
@@ -154,6 +154,17 @@ countdown tick = do
 setInt :: Index 8 -> State S ()
 setInt i = intBuf %= (`setBit` fromIntegral i)
 
+clearInt :: Interrupt -> State S ()
+clearInt i = do
+    intBuf %= (`clearBit` fromIntegral i)
+
+getPending :: State S (Maybe Interrupt)
+getPending = do
+    masked <- maskBy <$> use intMask <*> use intBuf
+    return $ if masked == 0 then Nothing else Just . fromIntegral $ countTrailingZeros masked
+  where
+    maskBy mask = (mask .&.)
+
 setTimer :: Index 5 -> Value -> State S ()
 setTimer i newCount = do
     timers %= replace i newCount
@@ -184,22 +195,8 @@ getStatus MkInput{..} = do
       rxFrameError :>
       Nil
 
-getMaskedInterrupt :: State S (BitVector 8)
-getMaskedInterrupt = maskBy <$> use intMask <*> use intBuf
-  where
-    maskBy mask = (mask .&.)
-
-getPending :: State S (Maybe Interrupt)
-getPending = do
-    masked <- getMaskedInterrupt
-    return $ if masked == 0 then Nothing else Just . fromIntegral $ countTrailingZeros masked
-
 toRST :: Maybe Interrupt -> Value
 toRST = rst . fromMaybe 7
-
-clearPending :: Interrupt -> State S ()
-clearPending i = do
-    intBuf %= (`clearBit` fromIntegral i)
 
 execDiscrete :: Value -> State S ()
 execDiscrete cmd = do
