@@ -99,9 +99,8 @@ controller inp@MkInput{..} tick cmd = do
     (int, dataOut) <- do
         shouldAck <- use enableAck
         if shouldAck && ack then do
-            pending <- getPending
-            traverse_ clearInt pending
-            return (Just $ toRST pending, Nothing)
+            int <- clearPending
+            return (Just int, Nothing)
           else do
             dataOut <- traverse (exec inp tick) cmd
             return (Nothing, dataOut)
@@ -118,11 +117,9 @@ exec inp@MkInput{..} tick cmd = case cmd of
         rxReady .= False
         use rxBuf
     ReadPort 0x1 -> return parallelIn
-    ReadPort 0x2 -> do
-        pending <- getPending
-        traverse_ clearInt pending
-        return $ toRST pending
+    ReadPort 0x2 -> clearPending
     ReadPort 0x3 -> getStatus inp
+    ReadPort _ -> return 0x00
 
     WritePort port x -> (*> return 0x00) $ case port of
         0x4 -> execDiscrete x
@@ -154,9 +151,17 @@ countdown tick = do
 setInt :: Index 8 -> State S ()
 setInt i = intBuf %= (`setBit` fromIntegral i)
 
+toRST :: Maybe Interrupt -> Value
+toRST = rst . fromMaybe 7
+
+clearPending :: State S Value
+clearPending = do
+    pending <- getPending
+    traverse clearInt pending
+    return $ rst . fromMaybe 7 $ pending
+
 clearInt :: Interrupt -> State S ()
-clearInt i = do
-    intBuf %= (`clearBit` fromIntegral i)
+clearInt i = intBuf %= (`clearBit` fromIntegral i)
 
 getPending :: State S (Maybe Interrupt)
 getPending = do
@@ -194,9 +199,6 @@ getStatus MkInput{..} = do
       rxOverrun :>
       rxFrameError :>
       Nil
-
-toRST :: Maybe Interrupt -> Value
-toRST = rst . fromMaybe 7
 
 execDiscrete :: Value -> State S ()
 execDiscrete cmd = do
