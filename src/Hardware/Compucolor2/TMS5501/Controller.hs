@@ -27,8 +27,8 @@ type Port = Index 16
 
 data S = MkS
     { _timers :: Vec 5 Value
-    , _intBuf :: Value
-    , _intMask :: Value
+    , _intBuf :: BitVector 8
+    , _intMask :: BitVector 8
     , _parallelBuf :: Value
     , _enableInputTrigger :: Bool
     , _enableAck :: Bool
@@ -129,7 +129,7 @@ exec inp@MkInput{..} tick cmd = case cmd of
         0x5 -> return () -- TODO: UART set baud rate
         0x6 -> txBuf .= Just x
         0x7 -> parallelBuf .= x
-        0x8 -> intMask .= x
+        0x8 -> intMask .= bitCoerce x
         0x9 -> setTimer 0 x
         0xa -> setTimer 1 x
         0xb -> setTimer 2 x
@@ -184,7 +184,7 @@ getStatus MkInput{..} = do
       rxFrameError :>
       Nil
 
-getMaskedInterrupt :: State S Value
+getMaskedInterrupt :: State S (BitVector 8)
 getMaskedInterrupt = maskBy <$> use intMask <*> use intBuf
   where
     maskBy mask = (mask .&.)
