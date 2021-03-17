@@ -32,7 +32,7 @@ data S = MkS
     , _parallelBuf :: BitVector 8
     , _enableInputTrigger :: Bool
     , _enableAck :: Bool
-    , _slowTick :: Bool
+    , _testingMode :: Bool
     , _rxBuf :: Unsigned 8
     , _rxReady :: Bool
     , _rxOverrun :: Bool
@@ -49,7 +49,7 @@ initS = MkS
     , _parallelBuf = 0x00
     , _enableInputTrigger = False
     , _enableAck = True
-    , _slowTick = True
+    , _testingMode = False
     , _rxBuf = 0x00
     , _rxReady = False
     , _rxOverrun = False
@@ -58,7 +58,7 @@ initS = MkS
 
 declareBareB [d|
   data Input = MkInput
-      { senseTrigger :: Bool
+      { sensorTrigger :: Bool
       , inputTrigger :: Bool
       , parallelIn :: BitVector 8
       , serialIn :: Bit
@@ -74,12 +74,12 @@ declareBareB [d|
       , txNew :: Maybe (Unsigned 8)
       , irq :: Bool
       , int :: Maybe Value
-      , divideTick :: Bool
+      , fast :: Bool
       } |]
 
 controller :: Pure Input -> Bool -> Maybe (PortCommand Port Value) -> State S (Maybe Value, Pure Output)
 controller inp@MkInput{..} tick cmd = do
-    when senseTrigger $ setInt 2
+    when sensorTrigger $ setInt 2
     when inputTrigger $ do
         enabled <- use enableInputTrigger
         when enabled $ setInt 7
@@ -110,7 +110,7 @@ controller inp@MkInput{..} tick cmd = do
     irq <- isJust <$> getPending
 
     parallelOut <- complement <$> use parallelBuf
-    divideTick <- use slowTick
+    fast <- use testingMode
     return (dataOut, MkOutput{..})
 
 exec :: Pure Input -> PortCommand Port Value -> State S Value
@@ -200,7 +200,7 @@ execDiscrete cmd = do
 
     enableInputTrigger .= cmd `testBit` 2
     enableAck .= cmd `testBit` 3
-    slowTick .= cmd `testBit` 4
+    testingMode .= not (cmd `testBit` 4)
     -- TODO: bit 5 --> interrupt output is clock (?)
   where
     reset = do

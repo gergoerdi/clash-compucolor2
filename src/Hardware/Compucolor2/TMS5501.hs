@@ -23,7 +23,7 @@ import Data.Tuple.Curry
 declareBareB [d|
   data Input = MkInput
       { parallelIn :: BitVector 8
-      , sense :: Bit
+      , sensor :: Bit
       , serialIn :: Bit
       , ack :: Bool
       } |]
@@ -53,9 +53,9 @@ tms5501 MkInput{..} cmd = (dataOut, out)
 
     fastTick = risePeriod (SNat @(Microseconds 8))
     slowTick = riseEveryWhen (SNat @8) fastTick
-    tick = mux (delay False divideTick) slowTick fastTick
+    tick = mux (delay False fast) fastTick slowTick
 
-    senseTrigger = isRising low sense
+    sensorTrigger = isRising low sensor
     inputTrigger = isRising low $ msb <$> parallelIn
 
     (rxResult, bunbundle -> UART.MkOutput{..}) = mealyStateB (uncurryN UART.uart) UART.initS (bbundle UART.MkInput{..}, register Nothing txNew)
