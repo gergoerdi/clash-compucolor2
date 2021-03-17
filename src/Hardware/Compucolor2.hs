@@ -23,6 +23,7 @@ import RetroClash.VGA
 import RetroClash.PS2
 import RetroClash.Memory
 import RetroClash.Barbies
+import Data.Maybe (isJust)
 
 topEntity
     :: "CLK_40MHZ" ::: Clock Dom40
@@ -64,12 +65,12 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
 
     tmsIn = TMS5501.MkInput
         { parallelIn = kbdCols
-        , sense = boolToBit <$> blink
+        , sensor = boolToBit . isJust <$> cursor
         , serialIn = rdFloppy
         , ack = _interruptAck
         }
 
-    (dataIn, ((vidAddr, vidWrite), (crtOut, blink), TMS5501.MkOutput{..})) =
+    (dataIn, ((vidAddr, vidWrite), crtOut@CRT5027.MkOutput{..}, TMS5501.MkOutput{..})) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
             rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
             ram <- ram0 (SNat @0x4000)

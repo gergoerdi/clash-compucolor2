@@ -44,9 +44,9 @@ crt5027
     => Signal dom Bool
     -> Signal dom (Maybe (PortCommand (Index 16) (Unsigned 8)))
     -> ( Signal dom (Maybe (Unsigned 8))
-       , (Signals dom Output, Signal dom Bool)
+       , Signals dom Output
        )
-crt5027 frameEnd cmd = (dataOut, (crtOut, blinkState))
+crt5027 frameEnd cmd = (dataOut, crtOut)
   where
     blink = riseEveryWhen (SNat @16) frameEnd
     blinkState = oscillateWhen True blink
