@@ -55,14 +55,19 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
     CPUOut{..} = intel8080 CPUIn{..}
 
     kbdCols = keyboard scanCode parallelOut
-    parIn = kbdCols
     pause = not <$> (turbo .||. riseEvery (SNat @20))
 
     rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
       where
         (_, nsel, wr, phase) = unbundle $ bitCoerce @_ @(BitVector 3, _, _, _) <$> parallelOut
         write = enable wr serialOut
-    serIn = rdFloppy
+
+    tmsIn = TMS5501.MkInput
+        { parallelIn = kbdCols
+        , sense = boolToBit <$> blink
+        , serialIn = rdFloppy
+        , ack = _interruptAck
+        }
 
     (dataIn, ((vidAddr, vidWrite), (crtOut, blink), TMS5501.MkOutput{..})) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
@@ -71,7 +76,7 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
-            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 blink parIn serIn _interruptAck |]
+            (tms, tmsOut) <- port @TMS5501.Port [| tms5501 tmsIn |]
             (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 

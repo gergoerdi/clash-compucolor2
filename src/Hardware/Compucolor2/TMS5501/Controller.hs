@@ -29,7 +29,7 @@ data S = MkS
     { _timers :: Vec 5 Value
     , _intBuf :: BitVector 8
     , _intMask :: BitVector 8
-    , _parallelBuf :: Value
+    , _parallelBuf :: BitVector 8
     , _enableInputTrigger :: Bool
     , _enableAck :: Bool
     , _tickScaler :: Maybe (Index 8)
@@ -60,7 +60,7 @@ declareBareB [d|
   data Input = MkInput
       { senseTrigger :: Bool
       , inputTrigger :: Bool
-      , parallelIn :: Value
+      , parallelIn :: BitVector 8
       , serialIn :: Bit
       , txReady :: Bool
       , rxResult :: Maybe (Unsigned 8)
@@ -70,7 +70,7 @@ declareBareB [d|
 
 declareBareB [d|
   data Output = MkOutput
-      { parallelOut :: Value
+      { parallelOut :: BitVector 8
       , txNew :: Maybe (Unsigned 8)
       , irq :: Bool
       , int :: Maybe Value
@@ -116,7 +116,7 @@ exec inp@MkInput{..} tick cmd = case cmd of
     ReadPort 0x0 -> do
         rxReady .= False
         use rxBuf
-    ReadPort 0x1 -> return parallelIn
+    ReadPort 0x1 -> return $ unpack parallelIn
     ReadPort 0x2 -> clearPending
     ReadPort 0x3 -> getStatus inp
     ReadPort _ -> return 0x00
@@ -125,7 +125,7 @@ exec inp@MkInput{..} tick cmd = case cmd of
         0x4 -> execDiscrete x
         0x5 -> return () -- TODO: UART set baud rate
         0x6 -> txBuf .= Just x
-        0x7 -> parallelBuf .= x
+        0x7 -> parallelBuf .= pack x
         0x8 -> intMask .= bitCoerce x
         0x9 -> setTimer 0 x
         0xa -> setTimer 1 x

@@ -8,12 +8,12 @@ import RetroClash.Keypad
 keyboard
     :: forall dom. (HiddenClockResetEnable dom)
     => Signal dom (Maybe ScanCode)
-    -> Signal dom (Unsigned 8)
-    -> Signal dom (Unsigned 8)
+    -> Signal dom (BitVector 8)
+    -> Signal dom (BitVector 8)
 keyboard sc selector = register 0 $ complement <$> mux includeMods (withMods <$> mods <*> cols) cols
   where
     keys = keyboardState sc
-    row = truncateB <$> selector :: Signal dom (Unsigned 4)
+    row = resize . unpack <$> selector :: Signal dom (Unsigned 4)
     cols = keys .!!. row
 
     includeMods = not . (`testBit` 7) <$> selector
@@ -26,17 +26,17 @@ keyboard sc selector = register 0 $ complement <$> mux includeMods (withMods <$>
         rpt = keyState 0x011 sc .||. keyState 0x111 sc -- left/right Alt
         capsLock = oscillateWhen True $ ((keyPress =<<) <$> sc) .== Just 0x058
 
-    withMods :: BitVector 4 -> Unsigned 8 -> Unsigned 8
-    withMods mods cols = bitCoerce (mods, truncateB cols)
+    withMods :: BitVector 4 -> BitVector 8 -> BitVector 8
+    withMods mods cols = pack (mods, resize cols)
 
 keyboardState
     :: forall dom. (HiddenClockResetEnable dom)
     => Signal dom (Maybe ScanCode)
-    -> Signal dom (Vec 16 (Unsigned 8))
+    -> Signal dom (Vec 16 (BitVector 8))
 keyboardState sc = bundle $ map keyRow (transpose keymap)
   where
-    keyRow :: Vec 8 KeyCode -> Signal dom (Unsigned 8)
-    keyRow = fmap (bitCoerce . reverse) . bundle . map (\kc -> keyState kc sc)
+    keyRow :: Vec 8 KeyCode -> Signal dom (BitVector 8)
+    keyRow = fmap (pack . reverse) . bundle . map (\kc -> keyState kc sc)
 
 keymap :: Matrix 8 16 KeyCode
 keymap =
