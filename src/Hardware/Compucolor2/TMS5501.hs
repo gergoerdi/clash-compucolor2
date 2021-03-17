@@ -51,7 +51,9 @@ tms5501 MkInput{..} cmd = (dataOut, out)
     interruptRequest = delay False irq
     rst = delay Nothing int
 
-    tick = risePeriod (SNat @(Microseconds 8))
+    fastTick = risePeriod (SNat @(Microseconds 8))
+    slowTick = riseEveryWhen (SNat @8) fastTick
+    tick = mux (delay False divideTick) slowTick fastTick
 
     senseTrigger = isRising low sense
     inputTrigger = isRising low $ msb <$> parallelIn

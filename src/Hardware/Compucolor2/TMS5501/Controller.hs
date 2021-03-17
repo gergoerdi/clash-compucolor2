@@ -32,7 +32,7 @@ data S = MkS
     , _parallelBuf :: BitVector 8
     , _enableInputTrigger :: Bool
     , _enableAck :: Bool
-    , _tickScaler :: Maybe (Index 8)
+    , _slowTick :: Bool
     , _rxBuf :: Unsigned 8
     , _rxReady :: Bool
     , _rxOverrun :: Bool
@@ -49,7 +49,7 @@ initS = MkS
     , _parallelBuf = 0x00
     , _enableInputTrigger = False
     , _enableAck = True
-    , _tickScaler = Just maxBound
+    , _slowTick = True
     , _rxBuf = 0x00
     , _rxReady = False
     , _rxOverrun = False
@@ -74,6 +74,7 @@ declareBareB [d|
       , txNew :: Maybe (Unsigned 8)
       , irq :: Bool
       , int :: Maybe Value
+      , divideTick :: Bool
       } |]
 
 controller :: Pure Input -> Bool -> Maybe (PortCommand Port Value) -> State S (Maybe Value, Pure Output)
@@ -82,7 +83,7 @@ controller inp@MkInput{..} tick cmd = do
     when inputTrigger $ do
         enabled <- use enableInputTrigger
         when enabled $ setInt 7
-    countdown tick
+    when tick countdown
 
     txNew <- use txBuf
 
@@ -109,6 +110,7 @@ controller inp@MkInput{..} tick cmd = do
     irq <- isJust <$> getPending
 
     parallelOut <- complement <$> use parallelBuf
+    divideTick <- use slowTick
     return (dataOut, MkOutput{..})
 
 exec :: Pure Input -> PortCommand Port Value -> State S Value
@@ -134,19 +136,10 @@ exec inp@MkInput{..} cmd = case cmd of
         0xd -> setTimer 4 x
         _ -> return ()
 
-countdown :: Bool -> State S ()
-countdown tick = do
-    tick' <- do
-        scale <- use tickScaler
-        case scale of
-            Nothing -> return tick
-            Just cnt -> do
-                when tick $ tickScaler .= Just (prevIdx cnt)
-                return $ tick && cnt == 0
-
-    when tick' $ for_ [0..4] $ \(fromIntegral -> i) -> do
-        count <- uses timers (!! i)
-        traverse_ (setTimer i) (predIdx count)
+countdown :: State S ()
+countdown = for_ indicesI $ \i -> do
+    count <- uses timers (!! i)
+    traverse_ (setTimer i) (predIdx count)
 
 setInt :: Index 8 -> State S ()
 setInt i = intBuf %= (`setBit` fromIntegral i)
@@ -207,7 +200,7 @@ execDiscrete cmd = do
 
     enableInputTrigger .= cmd `testBit` 2
     enableAck .= cmd `testBit` 3
-    tickScaler .= if cmd `testBit` 4 then Nothing else Just maxBound
+    slowTick .= cmd `testBit` 4
     -- TODO: bit 5 --> interrupt output is clock (?)
   where
     reset = do
