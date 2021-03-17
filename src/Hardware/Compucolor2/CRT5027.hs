@@ -46,14 +46,14 @@ crt5027
     -> ( Signal dom (Maybe (Unsigned 8))
        , (Signals dom Output, Signal dom Bool)
        )
-crt5027 frameEnd cmd = (dataOut, (crtOut, blink))
+crt5027 frameEnd cmd = (dataOut, (crtOut, blinkState))
   where
-    blink = riseEveryWhen (SNat @32) frameEnd
+    blink = riseEveryWhen (SNat @16) frameEnd
     blinkState = oscillateWhen True blink
 
-    (dataOut, bunbundle -> crtOut) = mealyStateB step initS (cmd, blink, blinkState)
+    (dataOut, bunbundle -> crtOut) = mealyStateB step initS (cmd, blinkState)
 
-    step (cmd, blink, blinkState) = do
+    step (cmd, blinkState) = do
         dataOut <- traverse exec cmd
         scrollOffset <- nextIdx <$> use lastLine
         x <- use cursorX
