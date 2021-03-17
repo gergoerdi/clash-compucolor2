@@ -102,7 +102,7 @@ controller inp@MkInput{..} tick cmd = do
             int <- clearPending
             return (Just int, Nothing)
           else do
-            dataOut <- traverse (exec inp tick) cmd
+            dataOut <- traverse (exec inp) cmd
             return (Nothing, dataOut)
 
     -- This is after handling the `ack`, since it could have cleared the previously pending irq
@@ -111,8 +111,8 @@ controller inp@MkInput{..} tick cmd = do
     parallelOut <- complement <$> use parallelBuf
     return (dataOut, MkOutput{..})
 
-exec :: Pure Input -> Bool -> PortCommand Port Value -> State S Value
-exec inp@MkInput{..} tick cmd = case cmd of
+exec :: Pure Input -> PortCommand Port Value -> State S Value
+exec inp@MkInput{..} cmd = case cmd of
     ReadPort 0x0 -> do
         rxReady .= False
         use rxBuf
