@@ -37,25 +37,26 @@ topEntity = withEnableGen board
       where
         turbo = bitToBool . lsb <$> switches
         scanCode = parseScanCode . decodePS2 . samplePS2 $ ps2
+        kbdCols = keyboard scanCode kbdRow
 
-        (crtOut, vidAddr, vidWrite) = mainBoard turbo scanCode frameEnd vidRead
+        (kbdRow, crtOut, vidAddr, vidWrite) = mainBoard turbo kbdCols frameEnd vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom Bool
-    -> Signal dom (Maybe ScanCode)
+    -> Signal dom (BitVector 8)
     -> Signal dom Bool
     -> Signal dom (Maybe (Unsigned 8))
-    -> ( Signals dom CRT5027.Output
+    -> ( Signal dom (BitVector 8)
+       , Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        )
-mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
+mainBoard turbo kbdCols frameEnd vidRead = (kbdRow, crtOut, vidAddr, vidWrite)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
-    kbdCols = keyboard scanCode parallelOut
     pause = not <$> (turbo .||. riseEvery (SNat @20))
 
     rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
@@ -69,6 +70,7 @@ mainBoard turbo scanCode frameEnd vidRead = (crtOut, vidAddr, vidWrite)
         , serialIn = rdFloppy
         , ack = _interruptAck
         }
+    kbdRow = parallelOut
 
     (dataIn, ((vidAddr, vidWrite), crtOut@CRT5027.MkOutput{..}, TMS5501.MkOutput{..})) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
@@ -106,7 +108,7 @@ simBoard
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_crtOut, vidAddr, vidWrite) = mainBoard (pure True) (pure Nothing) (pure False) vidRead
+    (_kbdRow, _crtOut, vidAddr, vidWrite) = mainBoard (pure True) (pure 0x00) (pure False) vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40
