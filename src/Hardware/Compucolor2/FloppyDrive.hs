@@ -19,7 +19,7 @@ floppyDrive
     -> Signal dom Bit
 floppyDrive sel phase wr = mux sel rd (pure 1)
   where
-    tick = riseEvery (SNat @(26 * 20)) -- TODO: compute this instead
+    tick = riseEvery (SNat @26)
 
     track = snatToNum (SNat @TrackSize)
 

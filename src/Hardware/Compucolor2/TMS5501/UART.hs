@@ -56,7 +56,7 @@ uart MkInput{..} newTx = do
     -- TODO: calculate bitDuration from clock, aiming for 20 * 8 * 9600 bps
     -- TODO: 4166 => 9600 bps
     -- TODO: 26 => 20*8*9600 bps
-    let bitDuration = 26 * 20
+    let bitDuration = 26
     (serialOut, txReady) <- zoom txState $ txStep bitDuration (pack <$> newTx)
     rxResult <- zoom rxState $ rxStep bitDuration serialIn
     rxInfo <- updateRxState
