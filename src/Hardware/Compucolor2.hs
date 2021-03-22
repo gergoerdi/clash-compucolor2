@@ -59,10 +59,10 @@ mainBoard turbo kbdCols frameEnd vidRead = (kbdRow, crtOut, vidAddr, vidWrite)
 
     pause = not <$> (turbo .||. riseEvery (SNat @20))
 
-    rdFloppy = register 1 $ floppyDrive (not <$> nsel) phase write
+    rdFloppy = register 1 $ floppyDrive (fromActive @Low <$> sel) phase write
       where
-        (_, nsel, wr, phase) = unbundle $ bitCoerce @_ @(BitVector 3, _, _, _) <$> parallelOut
-        write = enable wr serialOut
+        (_, sel, wr, phase) = unbundle $ bitCoerce @_ @(BitVector 3, _, _, _) <$> parallelOut
+        write = enable (fromActive @Low <$> wr) serialOut
 
     tmsIn = TMS5501.MkInput
         { parallelIn = kbdCols
