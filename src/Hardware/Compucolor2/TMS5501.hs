@@ -49,7 +49,8 @@ tms5501 MkInput{..} cmd = (dataOut, out)
   where
     out = MkOutput{..}
 
-    (dataOut, unbundle -> Ctl.MkOutput{..}) = mealyStateB (uncurryN Ctl.controller) Ctl.initS (bbundle Ctl.MkInput{..}, tick, cmd)
+    (dataOut, unbundle -> Ctl.MkOutput{..}) =
+        mealyStateB (uncurryN Ctl.controller) Ctl.initS (bbundle Ctl.MkInput{..}, tick, cmd)
     interruptRequest = delay False irq
     rst = delay Nothing int
 
@@ -60,4 +61,8 @@ tms5501 MkInput{..} cmd = (dataOut, out)
     sensorTrigger = isRising low sensor
     inputTrigger = isRising low $ msb <$> parallelIn
 
-    (rxResult, unbundle -> UART.MkOutput{..}) = mealyStateB (uncurryN $ UART.uart (SNat @(DomainPeriod dom))) UART.initS (bbundle UART.MkInput{..}, register Nothing txNew)
+    (rxResult, rxFlags) =
+        mealyStateB (uncurryN $ UART.uartRx (SNat @(DomainPeriod dom))) UART.initRxS (serialIn, delay False rxReset)
+
+    (serialOut, txReady) =
+        mealyStateB (uncurryN $ UART.uartTx (SNat @(DomainPeriod dom))) UART.initTxS (txNew, delay False txBreak)
