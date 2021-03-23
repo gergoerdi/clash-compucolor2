@@ -7,6 +7,9 @@ module Hardware.Compucolor2.TMS5501.UART
     , uartTx
     , initTxS
     , RxFlags(..)
+    , rxStart
+    , rxData
+    , rxFrameError
     ) where
 
 import Clash.Prelude
