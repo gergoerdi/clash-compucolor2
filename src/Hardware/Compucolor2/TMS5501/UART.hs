@@ -52,14 +52,16 @@ uartRx
     -> Bool
     -> State RxS (Maybe (Unsigned 8), RxFlags)
 uartRx period serialIn reset = do
-    rxResult <- zoom rxState $ rxStep bitDuration serialIn
-    rxState <- use rxState
-    zoom rxFlags $ do
-        updateRxFlags rxState
-        when reset $ do
-            rxStart .= False
-            rxData .= False
-
+    rxResult <-
+        if reset then do
+            rxFlags .= RxFlags False False False
+            rxState .= RxIdle
+            return Nothing
+        else do
+            rxResult <- zoom rxState $ rxStep bitDuration serialIn
+            rxState <- use rxState
+            zoom rxFlags $ updateRxFlags rxState
+            return rxResult
     rxFlags <- use rxFlags
     return (unpack <$> rxResult, rxFlags)
   where
