@@ -70,6 +70,7 @@ declareBareB [d|
       , rxFlags :: RxFlags
       , txReady :: Bool
       , ack :: Bool
+      , tick :: Bool
       } |]
 
 declareBareB [d|
@@ -85,8 +86,8 @@ declareBareB [d|
 
 type Ctl = State S
 
-controller :: Pure Input -> Bool -> Maybe (PortCommand Port Value) -> State S (Maybe Value, Pure Output)
-controller inp@MkInput{..} tick cmd = do
+controller :: Pure Input -> Maybe (PortCommand Port Value) -> State S (Maybe Value, Pure Output)
+controller inp@MkInput{..} cmd = do
     when sensorTrigger $ setInt 2
     when inputTrigger $ do
         enabled <- use enableInputTrigger

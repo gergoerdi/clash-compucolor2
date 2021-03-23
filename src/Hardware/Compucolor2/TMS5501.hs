@@ -50,7 +50,7 @@ tms5501 MkInput{..} cmd = (dataOut, out)
     out = MkOutput{..}
 
     (dataOut, unbundle -> Ctl.MkOutput{..}) =
-        mealyStateB (uncurryN Ctl.controller) Ctl.initS (bbundle Ctl.MkInput{..}, tick, cmd)
+        mealyStateB (uncurryN Ctl.controller) Ctl.initS (bbundle Ctl.MkInput{..}, cmd)
     interruptRequest = delay False irq
     rst = delay Nothing int
 
