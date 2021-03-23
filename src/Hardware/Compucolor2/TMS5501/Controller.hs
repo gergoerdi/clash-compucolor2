@@ -15,7 +15,7 @@ import RetroClash.Barbies
 
 import Hardware.Intel8080 (Interrupt, Value)
 import Hardware.Intel8080.Interruptor (rst)
-import Hardware.Compucolor2.TMS5501.UART (RxFlags(..))
+import Hardware.Compucolor2.TMS5501.UART
 import qualified Hardware.Compucolor2.TMS5501.UART as UART
 
 import Control.Monad.State
@@ -188,17 +188,16 @@ getStatus MkInput{..} = do
     intPending <- isJust <$> getPending
     rxReady <- use rxReady
     rxOverrun <- use rxOverrun <* (rxOverrun .= False)
-    let RxFlags{..} = rxFlags
 
     return $ bitCoerce $
-      _rxStart :>
-      _rxData :>
+      rxFlags ^. rxStart :>
+      rxFlags ^. rxData :>
       intPending :>
       txReady :>
       rxReady :>
       bitToBool serialIn :>
       rxOverrun :>
-      _rxFrameError :>
+      rxFlags ^. rxFrameError :>
       Nil
 
 execDiscrete :: Value -> WriterT (Any, Any) Ctl ()
