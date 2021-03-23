@@ -15,6 +15,8 @@ import RetroClash.Barbies
 
 import Hardware.Intel8080 (Interrupt, Value)
 import Hardware.Intel8080.Interruptor (rst)
+import Hardware.Compucolor2.TMS5501.UART (RxFlags(..))
+import qualified Hardware.Compucolor2.TMS5501.UART as UART
 
 import Control.Monad.State
 import Data.Foldable (traverse_, for_)
@@ -22,6 +24,8 @@ import Data.Maybe
 import Control.Lens hiding (Index, (:>))
 import Control.Monad.Extra
 import Barbies.TH
+import Data.Monoid
+import Control.Monad.Writer
 
 type Port = Index 16
 
@@ -62,9 +66,9 @@ declareBareB [d|
       , inputTrigger :: Bool
       , parallelIn :: BitVector 8
       , serialIn :: Bit
-      , txReady :: Bool
       , rxResult :: Maybe (Unsigned 8)
-      , rxInfo :: (Bool, Bool, Bool)
+      , rxFlags :: RxFlags
+      , txReady :: Bool
       , ack :: Bool
       } |]
 
@@ -75,7 +79,11 @@ declareBareB [d|
       , irq :: Bool
       , int :: Maybe Value
       , fast :: Bool
+      , rxReset :: Bool
+      , txBreak :: Bool
       } |]
+
+type Ctl = State S
 
 controller :: Pure Input -> Bool -> Maybe (PortCommand Port Value) -> State S (Maybe Value, Pure Output)
 controller inp@MkInput{..} tick cmd = do
@@ -97,7 +105,7 @@ controller inp@MkInput{..} tick cmd = do
         rxReady .= True
         rxBuf .= x
 
-    (int, dataOut) <- do
+    ((int, dataOut), (Any rxReset, Any txBreak)) <- runWriterT $ do
         shouldAck <- use enableAck
         if shouldAck && ack then do
             int <- clearPending
@@ -113,7 +121,7 @@ controller inp@MkInput{..} tick cmd = do
     fast <- use testingMode
     return (dataOut, MkOutput{..})
 
-exec :: Pure Input -> PortCommand Port Value -> State S Value
+exec :: Pure Input -> PortCommand Port Value -> WriterT (Any, Any) Ctl Value
 exec inp@MkInput{..} cmd = case cmd of
     ReadPort 0x0 -> do
         rxReady .= False
@@ -136,34 +144,34 @@ exec inp@MkInput{..} cmd = case cmd of
         0xd -> setTimer 4 x
         _ -> return ()
 
-countdown :: State S ()
+countdown :: Ctl ()
 countdown = for_ indicesI $ \i -> do
     count <- uses timers (!! i)
     traverse_ (setTimer i) (predIdx count)
 
-setInt :: Index 8 -> State S ()
+setInt :: (MonadState S m) => Index 8 -> m ()
 setInt i = intBuf %= (`setBit` fromIntegral i)
 
 toRST :: Maybe Interrupt -> Value
 toRST = rst . fromMaybe 7
 
-clearPending :: State S Value
+clearPending :: (MonadState S m) => m Value
 clearPending = do
     pending <- getPending
     traverse clearInt pending
     return $ rst . fromMaybe 7 $ pending
 
-clearInt :: Interrupt -> State S ()
+clearInt :: (MonadState S m) => Interrupt -> m ()
 clearInt i = intBuf %= (`clearBit` fromIntegral i)
 
-getPending :: State S (Maybe Interrupt)
+getPending :: (MonadState S m) => m (Maybe Interrupt)
 getPending = do
     masked <- maskBy <$> use intMask <*> use intBuf
     return $ if masked == 0 then Nothing else Just . fromIntegral $ countTrailingZeros masked
   where
     maskBy mask = (mask .&.)
 
-setTimer :: Index 5 -> Value -> State S ()
+setTimer :: (MonadState S m) => Index 5 -> Value -> m ()
 setTimer i newCount = do
     timers %= replace i newCount
     when (newCount == 0) $ do
@@ -175,25 +183,25 @@ setTimer i newCount = do
             3 -> Just 6
             4 -> guard (enableTimer4) >> Just 7
 
-getStatus :: Pure Input -> State S Value
+getStatus :: (MonadState S m) => Pure Input -> m Value
 getStatus MkInput{..} = do
     intPending <- isJust <$> getPending
     rxReady <- use rxReady
     rxOverrun <- use rxOverrun <* (rxOverrun .= False)
-    let (rxStart, rxData, rxFrameError) = rxInfo
+    let RxFlags{..} = rxFlags
 
     return $ bitCoerce $
-      rxStart :>
-      rxData :>
+      _rxStart :>
+      _rxData :>
       intPending :>
       txReady :>
       rxReady :>
       bitToBool serialIn :>
       rxOverrun :>
-      rxFrameError :>
+      _rxFrameError :>
       Nil
 
-execDiscrete :: Value -> State S ()
+execDiscrete :: Value -> WriterT (Any, Any) Ctl ()
 execDiscrete cmd = do
     when (cmd `testBit` 0) reset
     when (cmd `testBit` 1) break
@@ -207,12 +215,9 @@ execDiscrete cmd = do
         intBuf .= 0b0001_0000
         timers .= repeat 0
 
-        -- rxStart .= False
-        -- rxData .= False
-        -- txState .= TxIdle
+        tell (Any True, Any True)
         rxReady .= False
         rxOverrun .= False
 
-    break = do
-        -- txState .= TxIdle
-        return ()
+    break =
+        tell (mempty, Any True)

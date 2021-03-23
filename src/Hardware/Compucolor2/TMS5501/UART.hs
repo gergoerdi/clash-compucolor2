@@ -2,10 +2,11 @@
 module Hardware.Compucolor2.TMS5501.UART
     ( SlowRate
     , FastRate
-    , uart
-    , initS
-    , Input(..)
-    , Output(..)
+    , uartRx
+    , initRxS
+    , uartTx
+    , initTxS
+    , RxFlags(..)
     ) where
 
 import Clash.Prelude
@@ -23,65 +24,72 @@ import Data.Tuple.Curry
 type SlowRate = 9600
 type FastRate = SlowRate * 8
 
-data S = MkS
-    { _txState :: TxState 8
-    , _rxState :: RxState 8
-    , _rxStart :: Bool
+data RxFlags = RxFlags
+    { _rxStart :: Bool
     , _rxData :: Bool
     , _rxFrameError :: Bool
     }
     deriving (Show, Generic, NFDataX)
-makeLenses ''S
+makeLenses ''RxFlags
 
-initS :: S
-initS = MkS
-    { _txState = TxIdle
-    , _rxState = RxIdle
-    , _rxStart = False
-    , _rxData = False
-    , _rxFrameError = False
+data RxS = MkRxS
+    { _rxState :: RxState 8
+    , _rxFlags :: RxFlags
+    }
+    deriving (Show, Generic, NFDataX)
+makeLenses ''RxS
+
+initRxS :: RxS
+initRxS = MkRxS
+    { _rxState = RxIdle
+    , _rxFlags = RxFlags False False False
     }
 
-declareBareB [d|
-  data Input = MkInput
-      { serialIn :: Bit
-      } |]
-
-declareBareB [d|
-  data Output = MkOutput
-      { serialOut :: Bit
-      , txReady :: Bool
-      , rxInfo :: (Bool, Bool, Bool)
-      } |]
-
-uart
+uartRx
     :: forall period. (KnownNat period, 1 <= period)
     => SNat period
-    -> Pure Input
-    -> Maybe (Unsigned 8)
-    -> State S (Maybe (Unsigned 8), Pure Output)
-uart period MkInput{..} newTx = do
-    (serialOut, txReady) <- zoom txState $ txStep bitDuration (pack <$> newTx)
+    -> Bit
+    -> Bool
+    -> State RxS (Maybe (Unsigned 8), RxFlags)
+uartRx period serialIn reset = do
     rxResult <- zoom rxState $ rxStep bitDuration serialIn
-    rxInfo <- updateRxState
-    return (unpack <$> rxResult, MkOutput{..})
+    rxState <- use rxState
+    zoom rxFlags $ do
+        updateRxFlags rxState
+        when reset $ do
+            rxStart .= False
+            rxData .= False
+
+    rxFlags <- use rxFlags
+    return (unpack <$> rxResult, rxFlags)
   where
     bitDuration = snatToNum $ SNat @(HzToPeriod FastRate `Div` period)
 
-updateRxState :: State S (Bool, Bool, Bool)
-updateRxState = do
-    use rxState >>= \case
-        RxBit _ (Just 1) Rx.StartBit{} -> do
-            rxStart .= True
-        RxBit _ (Just _) Rx.DataBit{} -> do
-            rxData .= True
-        RxBit _ (Just sample) Rx.StopBit{} -> do
-            rxStart .= False
-            rxData .= False
-            rxFrameError .= not (sample == high)
-        _ -> return ()
+type TxS = TxState 8
 
-    rxStart <- use rxStart
-    rxData <- use rxData
-    rxFrameError <- use rxFrameError
-    return (rxStart, rxData, rxFrameError)
+initTxS :: TxS
+initTxS = TxIdle
+
+uartTx
+    :: forall period. (KnownNat period, 1 <= period)
+    => SNat period
+    -> Maybe (Unsigned 8)
+    -> Bool
+    -> State TxS (Bit, Bool)
+uartTx period newTx break = do
+    when break $ put TxIdle
+    txStep bitDuration (pack <$> newTx)
+  where
+    bitDuration = snatToNum $ SNat @(HzToPeriod FastRate `Div` period)
+
+updateRxFlags :: RxState n -> State RxFlags ()
+updateRxFlags = \case
+    RxBit _ (Just 1) Rx.StartBit{} -> do
+        rxStart .= True
+    RxBit _ (Just _) Rx.DataBit{} -> do
+        rxData .= True
+    RxBit _ (Just sample) Rx.StopBit{} -> do
+        rxStart .= False
+        rxData .= False
+        rxFrameError .= not (sample == high)
+    _ -> return ()
