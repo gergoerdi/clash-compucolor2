@@ -91,5 +91,5 @@ updateRxFlags = \case
     RxBit _ (Just sample) Rx.StopBit{} -> do
         rxStart .= False
         rxData .= False
-        rxFrameError .= not (sample == high)
+        rxFrameError .= (sample /= high)
     _ -> return ()
