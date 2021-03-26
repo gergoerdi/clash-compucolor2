@@ -1,14 +1,18 @@
 {-# LANGUAGE RecordWildCards, ViewPatterns, DataKinds #-}
+{-# LANGUAGE NoStarIsType, TypeOperators, TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+import Clash.Prelude hiding (filter)
+
 import Clash.Shake
 import Clash.Shake.Xilinx
 
 import Development.Shake
 import Development.Shake.FilePath
 import Control.Monad
-import Data.List
-import Data.List.Split
-import Clash.Prelude (Bit, BitVector, Unsigned, pack, (!))
-import Numeric (readHex)
+import Text.Regex.Applicative
+import Text.Regex.Applicative.Common
+import Data.Filtrable
+import Data.Maybe (fromMaybe)
 
 targets =
     [ ("nexys-a7-50t", xilinxVivado nexysA750T)
@@ -30,8 +34,8 @@ main = shakeArgs shakeOptions{ shakeFiles = outDir } $ do
 
     outDir </> "disk.tracks" %> \out -> do
         let inp = "image/disks/hangman.ccvf" -- TODO: flag
-        tracks <- map trackBits . splitTracks <$> readFile' inp
-        writeFileChanged out $ unlines . map show $ concat tracks
+        tracks <- parseDisk <$> readFile' inp
+        writeFileChanged out $ unlines $ diskLines tracks
 
     outDir </> "*.bin" %> \out -> do
         let inp = "image" </> dropExtension (takeFileName out)
@@ -56,24 +60,33 @@ main = shakeArgs shakeOptions{ shakeFiles = outDir } $ do
     phony "clashi" $
       clash ["--interactive", "src/Hardware/Compucolor2.hs"]
 
-splitTracks :: String -> [String]
-splitTracks =
-    tracks .
-    split (dropInitBlank $ whenElt ("Track" `isPrefixOf`)) .
-    dropWhile (not . ("Track" `isPrefixOf`)) .
-    lines
+type TrackSize = 15360
+type TrackCount = 41
+
+type Track = Vec TrackSize Bit
+type Disk = Vec TrackCount Track
+
+diskLines :: Disk -> [String]
+diskLines = toList . fmap show . concat
+
+parseDisk :: String -> Disk
+parseDisk = fromMaybe (error "CCVF parsing failed") . match disk
   where
-    tracks ([t]:bs:xs) = trackHeader t `seq` mconcat bs : tracks xs
-    tracks [] = []
+    eol = sym '\n'
 
-    trackHeader :: String -> Int
-    trackHeader s = maybe (error $ unwords ["Invalid track header:", show s]) read $ stripPrefix "Track " s
+    disk = magic *> many label *> tracks
 
-trackBits :: String -> [Bit]
-trackBits = concatBits . map (pack . byte) . chunksOf 2
-  where
-    byte :: String -> Unsigned 8
-    byte s = case readHex s of [(x, "")] -> x
+    magic = string "Compucolor Virtual Floppy Disk Image" *> eol
+    label = string "Label " *> few anySym <* eol
 
-    concatBits :: [BitVector 8] -> [Bit]
-    concatBits = concatMap $ \bv -> [bv!0, bv!1, bv!2, bv!3, bv!4, bv!5, bv!6, bv!7]
+    tracks = sequenceA $ fmap (\i -> trackHeader i *> track) indicesI
+
+    trackHeader i = string "Track " *> filter (== i) decimal *> eol
+
+    track = bits <$> (sequenceA . repeat $ byte <* many eol)
+
+    byte :: RE Char (BitVector 8)
+    byte = ((++#) @4 @4) <$> hexDigit <*> hexDigit
+
+    bits :: Vec n (BitVector 8) -> Vec (n * 8) Bit
+    bits = concatMap (reverse . bv2v)
