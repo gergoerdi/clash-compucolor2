@@ -33,6 +33,9 @@ dependencies:
   - clash-shake
   - intel8080
 
+  - regex-applicative
+  - filtrable
+
   - sdl2
   - terminal
 
@@ -44,7 +47,6 @@ dependencies:
   - barbies
   - barbies-th
   - tuple
-  - split
   - extra
   - template-haskell
 
