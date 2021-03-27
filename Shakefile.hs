@@ -13,6 +13,7 @@ import Text.Regex.Applicative
 import Text.Regex.Applicative.Common
 import Data.Filtrable
 import Data.Maybe (fromMaybe)
+import Data.Traversable (for)
 
 targets =
     [ ("nexys-a7-50t", xilinxVivado nexysA750T)
@@ -79,13 +80,12 @@ parseDisk = fromMaybe (error "CCVF parsing failed") . match disk
     magic = string "Compucolor Virtual Floppy Disk Image" *> eol
     label = string "Label " *> few anySym <* eol
 
-    tracks = sequenceA $ fmap (\i -> trackHeader i *> track) indicesI
+    tracks = for indicesI $ \i -> trackHeader i *> track
 
     trackHeader i = string "Track " *> filter (== i) decimal *> eol
 
     track = bits <$> (sequenceA . repeat $ byte <* many eol)
 
-    byte :: RE Char (BitVector 8)
     byte = ((++#) @4 @4) <$> hexDigit <*> hexDigit
 
     bits :: Vec n (BitVector 8) -> Vec (n * 8) Bit
