@@ -5,6 +5,8 @@ module Hardware.Compucolor2.TMS5501
     , Input(..)
     , Output(..)
     , tms5501
+    , UART.SlowRate
+    , UART.FastRate
     ) where
 
 import Clash.Prelude
@@ -37,7 +39,7 @@ declareBareB [d|
       } |]
 
 tms5501
-    :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
+    :: forall dom. (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signals dom Input
     -> Signal dom (Maybe (PortCommand Ctl.Port Value))
     -> ( Signal dom (Maybe Value)
@@ -58,4 +60,4 @@ tms5501 MkInput{..} cmd = (dataOut, out)
     sensorTrigger = isRising low sensor
     inputTrigger = isRising low $ msb <$> parallelIn
 
-    (rxResult, bunbundle -> UART.MkOutput{..}) = mealyStateB (uncurryN UART.uart) UART.initS (bbundle UART.MkInput{..}, register Nothing txNew)
+    (rxResult, bunbundle -> UART.MkOutput{..}) = mealyStateB (uncurryN $ UART.uart (SNat @(DomainPeriod dom))) UART.initS (bbundle UART.MkInput{..}, register Nothing txNew)

@@ -3,7 +3,8 @@ module Hardware.Compucolor2.FloppyDrive where
 
 import Clash.Prelude
 import RetroClash.Utils
-import Text.Printf
+import RetroClash.Clock
+import Hardware.Compucolor2.TMS5501 (FastRate)
 
 import Control.Monad.State
 
@@ -12,7 +13,7 @@ type TrackSize = 15360
 type DiskSize = TrackCount * TrackSize
 
 floppyDrive
-    :: forall dom. (HiddenClockResetEnable dom)
+    :: forall dom. (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom Bool
     -> Signal dom (BitVector 3)
     -> Signal dom (Maybe Bit)

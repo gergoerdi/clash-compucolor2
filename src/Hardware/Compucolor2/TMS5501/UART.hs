@@ -1,6 +1,8 @@
 {-# LANGUAGE LambdaCase, RecordWildCards #-}
 module Hardware.Compucolor2.TMS5501.UART
-    ( uart
+    ( SlowRate
+    , FastRate
+    , uart
     , initS
     , Input(..)
     , Output(..)
@@ -18,7 +20,8 @@ import Control.Lens hiding (Index, (:>))
 import Barbies.TH
 import Data.Tuple.Curry
 
-type Port = Index 16
+type SlowRate = 9600
+type FastRate = SlowRate * 8
 
 data S = MkS
     { _txState :: TxState 8
@@ -51,16 +54,19 @@ declareBareB [d|
       , rxInfo :: (Bool, Bool, Bool)
       } |]
 
-uart :: Pure Input -> Maybe (Unsigned 8) -> State S (Maybe (Unsigned 8), Pure Output)
-uart MkInput{..} newTx = do
-    -- TODO: calculate bitDuration from clock, aiming for 20 * 8 * 9600 bps
-    -- TODO: 4166 => 9600 bps
-    -- TODO: 26 => 20*8*9600 bps
-    let bitDuration = 26 * 20
+uart
+    :: forall period. (KnownNat period, 1 <= period)
+    => SNat period
+    -> Pure Input
+    -> Maybe (Unsigned 8)
+    -> State S (Maybe (Unsigned 8), Pure Output)
+uart period MkInput{..} newTx = do
     (serialOut, txReady) <- zoom txState $ txStep bitDuration (pack <$> newTx)
     rxResult <- zoom rxState $ rxStep bitDuration serialIn
     rxInfo <- updateRxState
     return (unpack <$> rxResult, MkOutput{..})
+  where
+    bitDuration = snatToNum $ SNat @(HzToPeriod FastRate `Div` period)
 
 updateRxState :: State S (Bool, Bool, Bool)
 updateRxState = do
