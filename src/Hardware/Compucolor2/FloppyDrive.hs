@@ -20,7 +20,8 @@ floppyDrive
     -> Signal dom Bit
 floppyDrive sel phase wr = mux sel rd (pure 1)
   where
-    rd' = singlePort (blockRamFile (SNat @DiskSize) "_build/disk.tracks") addr (pure Nothing)
+    wr' = guardA sel $ fmap pack <$> wr
+    rd' = singlePort (blockRamFile (SNat @DiskSize) "_build/disk.tracks") addr wr'
     rd = unpack <$> rd'
 
     addr = base + (fromIntegral <$> offset)
