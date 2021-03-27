@@ -20,20 +20,24 @@ floppyDrive
     -> Signal dom Bit
 floppyDrive sel phase wr = mux sel rd (pure 1)
   where
-    tick = riseEvery (SNat @(26 * 20)) -- TODO: compute this instead
+    rd' = singlePort (blockRamFile (SNat @DiskSize) "_build/disk.tracks") addr (pure Nothing)
+    rd = unpack <$> rd'
+
+    addr = base + (fromIntegral <$> offset)
+
+    tick = riseRate (SNat @FastRate)
+    offset = regEn (0 :: Index TrackSize) tick $ nextIdx <$> offset
 
     track = snatToNum (SNat @TrackSize)
 
-    base = regMaybe (0 :: Index DiskSize) $ do
+    base = regEn (0 :: Index DiskSize) sel $ do
         phase0 <- regEn 0 sel phase
-        sel <- sel
         phase <- phase
-        base0 <- base
-        pure $ do
-            guard sel
-            let stepOut = Just$ satSub SatBound base0 track
-                stepIn = Just $ satAdd SatBound base0 track
-            case (phase0, phase) of
+        base <- base
+        pure $
+            let stepOut = satSub SatBound base track
+                stepIn = satAdd SatBound base track
+            in case (phase0, phase) of
                 (0b110, 0b011) -> stepOut
                 (0b011, 0b101) -> stepOut
                 (0b101, 0b110) -> stepOut
@@ -42,9 +46,4 @@ floppyDrive sel phase wr = mux sel rd (pure 1)
                 (0b101, 0b011) -> stepIn
                 (0b011, 0b110) -> stepIn
 
-                _ -> Nothing
-
-    offset = regMaybe (0 :: Index TrackSize) $ enable tick $ nextIdx <$> offset
-    addr = base + (fromIntegral <$> offset)
-
-    rd = unpack <$> blockRamFile (SNat @DiskSize) ("_build/disk.tracks") addr (pure Nothing)
+                _ -> base
