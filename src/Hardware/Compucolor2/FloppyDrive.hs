@@ -15,10 +15,11 @@ type DiskSize = TrackCount * TrackSize
 floppyDrive
     :: forall dom. (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom Bool
+    -> Signal dom Bool
     -> Signal dom (BitVector 3)
     -> Signal dom (Maybe Bit)
     -> Signal dom Bit
-floppyDrive sel phase wr = mux sel rd (pure 1)
+floppyDrive turbo sel phase wr = mux sel rd (pure 1)
   where
     wr' = guardA sel $ fmap pack <$> wr
     rd' = singlePort (blockRamFile (SNat @DiskSize) "_build/disk.tracks") addr wr'
@@ -26,7 +27,9 @@ floppyDrive sel phase wr = mux sel rd (pure 1)
 
     addr = base + (fromIntegral <$> offset)
 
-    tick = riseRate (SNat @FastRate)
+    tickTurbo = riseRate (SNat @(FastRate * 20))
+    tickNormal = riseRate (SNat @FastRate)
+    tick = mux turbo tickTurbo tickNormal
     offset = regEn (0 :: Index TrackSize) tick $ nextIdx <$> offset
 
     track = snatToNum (SNat @TrackSize)

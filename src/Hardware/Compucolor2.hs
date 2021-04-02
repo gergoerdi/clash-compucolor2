@@ -64,7 +64,7 @@ mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidW
 
     pause = not <$> (turbo .||. riseEvery (SNat @20))
 
-    floppyRd = register 1 $ floppyDrive (fromActive @Low <$> sel) phase write
+    floppyRd = register 1 $ floppyDrive turbo (fromActive @Low <$> sel) phase write
       where
         sel = bitCoerce . (`testBit` 4) <$> parallelOut
         wr = bitCoerce . (`testBit` 3) <$> parallelOut
@@ -76,6 +76,7 @@ mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidW
         , sensor = boolToBit . isJust <$> cursor
         , serialIn = floppyRd
         , ack = _interruptAck
+        , turbo = turbo
         }
     kbdRow = parallelOut
     tx = serialOut

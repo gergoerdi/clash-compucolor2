@@ -28,6 +28,7 @@ declareBareB [d|
       , sensor :: Bit
       , serialIn :: Bit
       , ack :: Bool
+      , turbo :: Bool
       } |]
 
 declareBareB [d|
@@ -62,7 +63,7 @@ tms5501 MkInput{..} cmd = (dataOut, out)
     inputTrigger = isRising low $ msb <$> parallelIn
 
     (rxResult, rxFlags) =
-        mealyStateB (uncurryN $ UART.uartRx (SNat @(DomainPeriod dom))) UART.initRxS (serialIn, rxReset)
+        mealyStateB (uncurryN $ UART.uartRx (SNat @(DomainPeriod dom))) UART.initRxS (fast, turbo, serialIn, rxReset)
 
     (serialOut, txReady) =
-        mealyStateB (uncurryN $ UART.uartTx (SNat @(DomainPeriod dom))) UART.initTxS (txNew, txBreak)
+        mealyStateB (uncurryN $ UART.uartTx (SNat @(DomainPeriod dom))) UART.initTxS (fast, turbo, txNew, txBreak)
