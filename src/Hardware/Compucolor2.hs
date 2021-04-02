@@ -29,31 +29,36 @@ topEntity
     :: "CLK_40MHZ" ::: Clock Dom40
     -> "RESET"     ::: Reset Dom40
     -> "SWITCHES"  ::: Signal Dom40 (BitVector 8)
+    -> "RX"        ::: Signal Dom40 Bit
     -> "PS2"       ::: PS2 Dom40
-    -> "VGA"       ::: VGAOut Dom40 8 8 8
+    -> ( "VGA"     ::: VGAOut Dom40 8 8 8
+       , "TX"      ::: Signal Dom40 Bit
+       )
 topEntity = withEnableGen board
   where
-    board switches ps2 = vga
+    board switches rx ps2 = (vga, tx)
       where
         turbo = bitToBool . lsb <$> switches
         scanCode = parseScanCode . decodePS2 . samplePS2 $ ps2
         kbdCols = keyboard scanCode kbdRow
 
-        (kbdRow, crtOut, vidAddr, vidWrite) = mainBoard turbo kbdCols frameEnd vidRead
+        (tx, kbdRow, crtOut, vidAddr, vidWrite) = mainBoard turbo rx kbdCols frameEnd vidRead
         (vga, frameEnd, vidRead) = video crtOut vidAddr vidWrite
 
 mainBoard
     :: (HiddenClockResetEnable dom, KnownNat (DomainPeriod dom), 1 <= DomainPeriod dom)
     => Signal dom Bool
+    -> Signal dom Bit
     -> Signal dom (BitVector 8)
     -> Signal dom Bool
     -> Signal dom (Maybe (Unsigned 8))
-    -> ( Signal dom (BitVector 8)
+    -> ( Signal dom Bit
+       , Signal dom (BitVector 8)
        , Signals dom CRT5027.Output
        , Signal dom (Maybe (Bool, VidAddr))
        , Signal dom (Maybe (Unsigned 8))
        )
-mainBoard turbo kbdCols frameEnd vidRead = (kbdRow, crtOut, vidAddr, vidWrite)
+mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidWrite)
   where
     CPUOut{..} = intel8080 CPUIn{..}
 
@@ -73,6 +78,7 @@ mainBoard turbo kbdCols frameEnd vidRead = (kbdRow, crtOut, vidAddr, vidWrite)
         , ack = _interruptAck
         }
     kbdRow = parallelOut
+    tx = serialOut
 
     (dataIn, ((vidAddr, vidWrite), crtOut@CRT5027.MkOutput{..}, TMS5501.MkOutput{..})) =
         $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
@@ -110,7 +116,7 @@ simBoard
        )
 simBoard vidRead = (vidAddr, vidWrite)
   where
-    (_kbdRow, _crtOut, vidAddr, vidWrite) = mainBoard (pure True) (pure 0x00) (pure False) vidRead
+    (_tx, _kbdRow, _crtOut, vidAddr, vidWrite) = mainBoard (pure True) (pure high) (pure 0x00) (pure False) vidRead
 
 simEntity
     :: "CLK_40MHZ"    ::: Clock Dom40
