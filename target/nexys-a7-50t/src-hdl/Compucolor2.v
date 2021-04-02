@@ -3,6 +3,9 @@ module Compucolor2 (
 
            input [15:0] SW,
 
+           input        UART_TXD_IN,
+           output       UART_RXD_OUT,
+
            input        PS2_CLK,
            input        PS2_DATA,
 
@@ -35,6 +38,9 @@ module Compucolor2 (
       .RESET(!CLK_LOCKED),
 
       .SWITCHES(SW[7:0]),
+
+      .RX(UART_TXD_IN),
+      .TX(UART_RXD_OUT),
 
       .PS2_CLK(PS2_CLK),
       .PS2_DATA(PS2_DATA),
