@@ -23,6 +23,7 @@ import Control.Monad.State
 import Control.Lens hiding (Index, (:>))
 import Barbies.TH
 import Data.Tuple.Curry
+import Data.Word
 
 type SlowRate = 9600
 type FastRate = SlowRate * 8
@@ -48,13 +49,26 @@ initRxS = MkRxS
     , _rxFlags = RxFlags False False False
     }
 
+uartBitDuration
+    :: forall period. (KnownNat period, 1 <= period)
+    => SNat period
+    -> Bool
+    -> Bool
+    -> Word32
+uartBitDuration period fast turbo
+  | fast && turbo = snatToNum $ SNat @(HzToPeriod (FastRate * 20) `Div` period)
+  | fast = snatToNum $ SNat @(HzToPeriod FastRate `Div` period)
+  | otherwise = snatToNum $ SNat @(HzToPeriod SlowRate `Div` period)
+
 uartRx
     :: forall period. (KnownNat period, 1 <= period)
     => SNat period
+    -> Bool
+    -> Bool
     -> Bit
     -> Bool
     -> State RxS (Maybe (Unsigned 8), RxFlags)
-uartRx period serialIn reset = do
+uartRx period fast turbo serialIn reset = do
     rxResult <-
         if reset then do
             rxFlags .= RxFlags False False False
@@ -68,7 +82,7 @@ uartRx period serialIn reset = do
     rxFlags <- use rxFlags
     return (unpack <$> rxResult, rxFlags)
   where
-    bitDuration = snatToNum $ SNat @(HzToPeriod FastRate `Div` period)
+    bitDuration = uartBitDuration period fast turbo
 
 type TxS = TxState 8
 
@@ -78,14 +92,16 @@ initTxS = TxIdle
 uartTx
     :: forall period. (KnownNat period, 1 <= period)
     => SNat period
+    -> Bool
+    -> Bool
     -> Maybe (Unsigned 8)
     -> Bool
     -> State TxS (Bit, Bool)
-uartTx period newTx break = do
+uartTx period fast turbo newTx break = do
     when break $ put TxIdle
     txStep bitDuration (pack <$> newTx)
   where
-    bitDuration = snatToNum $ SNat @(HzToPeriod FastRate `Div` period)
+    bitDuration = uartBitDuration period fast turbo
 
 updateRxFlags :: RxState n -> State RxFlags ()
 updateRxFlags = \case
