@@ -73,7 +73,7 @@ diskLines = toList . fmap show . concat
 parseDisk :: String -> Disk
 parseDisk = fromMaybe (error "CCVF parsing failed") . match disk
   where
-    eol = sym '\n'
+    eol = void $ optional (sym '\r') *> sym '\n'
 
     disk = magic *> many label *> tracks
 
