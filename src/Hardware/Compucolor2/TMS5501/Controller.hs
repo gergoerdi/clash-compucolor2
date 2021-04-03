@@ -200,7 +200,7 @@ execDiscrete cmd = do
 
     enableInputTrigger .= cmd `testBit` 2
     enableAck .= cmd `testBit` 3
-    testingMode .= not (cmd `testBit` 4)
+    testingMode .= cmd `testBit` 4
     -- TODO: bit 5 --> interrupt output is clock (?)
   where
     reset = do
