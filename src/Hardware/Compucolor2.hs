@@ -64,9 +64,9 @@ mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidW
 
     pause = not <$> (turbo .||. riseEvery (SNat @20))
 
-    floppyRd = register 1 $ floppyDrive turbo (fromActive @Low <$> sel) phase write
+    floppySel = fromActive @Low . bitCoerce . (`testBit` 4) <$> parallelOut
+    floppyRd = register 1 $ floppyDrive turbo floppySel phase write
       where
-        sel = bitCoerce . (`testBit` 4) <$> parallelOut
         wr = bitCoerce . (`testBit` 3) <$> parallelOut
         phase = slice (SNat @2) (SNat @0) <$> parallelOut
         write = enable (fromActive @Low <$> wr) serialOut
@@ -74,7 +74,7 @@ mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidW
     tmsIn = TMS5501.MkInput
         { parallelIn = kbdCols
         , sensor = boolToBit . isJust <$> cursor
-        , serialIn = floppyRd
+        , serialIn = mux (register False floppySel) floppyRd rx
         , ack = _interruptAck
         , turbo = turbo
         }
