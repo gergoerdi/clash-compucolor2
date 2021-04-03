@@ -8,6 +8,7 @@ import Clash.Shake.Xilinx
 
 import Development.Shake
 import Development.Shake.FilePath
+import Development.Shake.Config
 import Control.Monad
 import Text.Regex.Applicative
 import Text.Regex.Applicative.Common
@@ -34,8 +35,8 @@ main = shakeArgs shakeOptions{ shakeFiles = outDir } $ do
     let roms = ["chargen.uf6", "v678.rom"]
 
     outDir </> "disk.tracks" %> \out -> do
-        let inp = "image/disks/hangman.ccvf" -- TODO: flag
-        tracks <- parseDisk <$> readFile' inp
+        ccvf <- fromMaybe "image/disks/sampler.ccvf" <$> getConfig "DISK"
+        tracks <- parseDisk <$> readFile' ccvf
         writeFileChanged out $ unlines $ diskLines tracks
 
     outDir </> "*.bin" %> \out -> do

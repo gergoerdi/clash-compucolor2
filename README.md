@@ -91,6 +91,7 @@ Make a file called `build.mk` with content similar to the following:
 TARGET = nexys-a7-50t
 ISE = ~/prog/docker/xilinx-ubuntu-12.04/run
 VIVADO = ~/prog/docker/xilinx-2019.1-ubuntu-18.04/run
+DISK = image/disks/hangman.ccvf
 ```
 
 The `ISE` and `VIVADO` fields are to optionally wrap invocations of
