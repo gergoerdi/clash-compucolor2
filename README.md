@@ -51,10 +51,14 @@ manifactured by the CompuColor Corporation until 1980.
   
 * **Disk drive**: Virtual "disk" served from a small block ROM,
   connected to the serial port of the TMS 5501.
-  
+
+* **Serial IO**: serial rate of the TMS 5501 is set to 9600 bps and
+  not configurable.
+
 * **Turbo switch**: If unset, the CPU is slowed down by idling for 19
   out of every 20 cycles. This way, even though it runs at the pixel
   clock speed of 40 MHz, real-time games are still playable. 
+
 
 
 ## Limitations
