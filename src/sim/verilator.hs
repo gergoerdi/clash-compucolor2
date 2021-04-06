@@ -47,6 +47,7 @@ main = withRunner $ \runCycle -> do
                 , iSWITCHES = 0b0000_0001
                 , iPS2_CLK = low
                 , iPS2_DATA = low
+                , iRX = high
                 }
 
         whileM $ do
