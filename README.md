@@ -52,23 +52,9 @@ manifactured by the CompuColor Corporation until 1980.
 * **Disk drive**: Virtual "disk" served from a small block ROM,
   connected to the serial port of the TMS 5501.
 
-* **Serial IO**: serial rate of the TMS 5501 is set to 9600 bps and
-  not configurable.
-
 * **Turbo switch**: If unset, the CPU is slowed down by idling for 19
   out of every 20 cycles. This way, even though it runs at the pixel
   clock speed of 40 MHz, real-time games are still playable. 
-
-
-
-## Limitations
-
-Most of the programmable functionality of the CRT5027 video controller
-is missing. Some of it is not used by the Compucolor II anyway, since
-the output video mode's timings are set in stone. However, the
-Compucolor II does use the scrolling functions, so those will need to
-be implemented at some point.
-
 
 # Simulation
 
@@ -76,6 +62,15 @@ Simulations of several abstraction level are included. Most come in
 two flavors: using Clash, or using Verilator. The Verilator ones
 generally perform much better, but require installing Verilator and
 compiling with the `verilator` Cabal flag.
+
+## Limitations
+
+* The CRT 5027 video controller only implements the 64⨯32 character
+  mode used by the Compcolor II
+  
+* The serial data rate of the TMS 5501 is fixed at 9600 bps
+
+* Keyboard input is not implemented in any of the simulations
 
 # Synthesizing
 
@@ -102,7 +97,8 @@ The `ISE` and `VIVADO` fields are to optionally wrap invocations of
 the Xilinx ISE / Vivado toolchain in case you want to run them via
 Stack, Docker, Nix, etc.
 
-Then you can build for by running the included `mk` script.
+Then you can build into an FPGA configuration bitfile by running the
+included `mk` script.
 
 
 # Useful links
