@@ -36,7 +36,7 @@ manifactured by the CompuColor Corporation until 1980.
 * **Framebuffer**: Since the video system needs access to both
   even-addressed (character index) and odd-addressed (color etc.)
   bytes, preferably in the same cycle, the framebuffer is split into
-  two 1K RAMs, one holding the even and the other holding the odd
+  two 2K RAMs, one holding the even and the other holding the odd
   addresses. The CPU reads/writes these through special logic handling
   the least significant bit of the original (single-byte) address.
 
