@@ -1,7 +1,7 @@
 # Compucolor II Home Computer
 
 This is a Clash implementation of the 1977 Compucolor II home computer
-manifactured by the CompuColor Corporation until 1980.
+manufactured by the CompuColor Corporation until 1980.
 
 ![Compucolor II just booting up in simulation](vga-full-boot.png)
 
@@ -58,7 +58,7 @@ manifactured by the CompuColor Corporation until 1980.
 
 # Simulation
 
-Simulations of several abstraction level are included. Most come in
+Simulations of several abstraction levels are included. Most come in
 two flavors: using Clash, or using Verilator. The Verilator ones
 generally perform much better, but require installing Verilator and
 compiling with the `verilator` Cabal flag.
@@ -66,7 +66,7 @@ compiling with the `verilator` Cabal flag.
 ## Limitations
 
 * The CRT 5027 video controller only implements the 64⨯32 character
-  mode used by the Compcolor II
+  mode used by the Compucolor II
   
 * The serial data rate of the TMS 5501 is fixed at 9600 bps
 
@@ -77,7 +77,7 @@ compiling with the `verilator` Cabal flag.
 Included are Shake rules to build for various hobbyist FPGA dev
 boards:
 
-* The Xilinx Artrix-7 based Nexys A7 50T. This uses the Xilinx Vivado
+* The Xilinx Artix-7 based Nexys A7 50T. This uses the Xilinx Vivado
   toolchain.
 
 * TODO: The Xilinx Spartan-6 based Papilio Pro or the Spartan-3 based
