@@ -100,6 +100,13 @@ packages:
   original:
     hackage: monad-supply-0.9
 - completed:
+    hackage: lift-type-0.1.0.0@sha256:3c32685890d582beb9d55fb38532de0deb35b0bb6de9f3a444dae77ff89f09d5,1094
+    pantry-tree:
+      size: 360
+      sha256: e7d7178b8725fdc85d798d9c7111e169f38fd3320056c407ebcf67d332527d94
+  original:
+    hackage: lift-type-0.1.0.0
+- completed:
     hackage: terminal-0.2.0.0@sha256:de6770ecaae3197c66ac1f0db5a80cf5a5b1d3b64a66a05b50f442de5ad39570,2977
     pantry-tree:
       size: 1775
