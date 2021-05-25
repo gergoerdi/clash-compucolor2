@@ -81,10 +81,11 @@ mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidW
     kbdRow = parallelOut
     tx = serialOut
 
-    (dataIn, ((vidAddr, vidWrite), crtOut@CRT5027.MkOutput{..}, TMS5501.MkOutput{..})) =
-        $(memoryMap @(Either (Unsigned 8) (Unsigned 16)) [|_addrOut|] [|_dataOut|] $ do
-            rom <- romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
-            ram <- ram0 (SNat @0x4000)
+    dataIn = Just 0 |>. dataIn'
+    (dataIn', ((vidAddr, vidWrite), crtOut@CRT5027.MkOutput{..}, TMS5501.MkOutput{..})) =
+        $(memoryMap [|_addrOut|] [|_dataOut|] $ do
+            rom <- mapH [|Just|] =<< romFromFile (SNat @0x4000) [|"_build/v678.rom.bin"|]
+            ram <- mapH [|Just|] =<< ram0 (SNat @0x4000)
             (vid, vidAddr, vidWrite) <- conduit @(Bool, VidAddr) [|vidRead|]
 
             -- TODO: how can we pattern match on tmsOut?
@@ -92,20 +93,21 @@ mainBoard turbo rx kbdCols frameEnd vidRead = (tx, kbdRow, crtOut, vidAddr, vidW
             (crt, crtOut) <- port @(Index 0x10) [| crt5027 frameEnd |]
             prom <- readWrite_ @(Index 0x20) (\_ _ -> [|pure $ Just 0x00|]) -- TODO
 
-            override [|rst|]
+            override [|fmap Just <$> rst|]
 
-            matchLeft $ do
-                from 0x00 $ connect tms
-                from 0x10 $ connect tms
-                from 0x60 $ connect crt
-                from 0x70 $ connect crt
-                from 0x80 $ connect prom
+            matchJust $ do
+                matchLeft @(Unsigned 8) $ do
+                    from 0x00 $ connect tms
+                    from 0x10 $ connect tms
+                    from 0x60 $ connect crt
+                    from 0x70 $ connect crt
+                    from 0x80 $ connect prom
 
-            matchRight $ do
-                from 0x0000 $ connect rom
-                from 0x6000 $ tag True $ connect vid
-                from 0x7000 $ tag False $ connect vid
-                from 0x8000 $ connect ram
+                matchRight @(Unsigned 16) $ do
+                    from 0x0000 $ connect rom
+                    from 0x6000 $ tag True $ connect vid
+                    from 0x7000 $ tag False $ connect vid
+                    from 0x8000 $ connect ram
 
             return ((vidAddr, vidWrite), crtOut, tmsOut))
 
