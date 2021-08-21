@@ -3,6 +3,9 @@
 This is a Clash implementation of the 1977 Compucolor II home computer
 manufactured by the CompuColor Corporation until 1980.
 
+This code is part of the book *Retrocomputing with Clash: Haskell for
+FPGA Hardware Design* at <https://unsafePerform.IO/retroclash/>.
+
 ![Compucolor II just booting up in simulation](vga-full-boot.png)
 
 ## Hardware architecture
