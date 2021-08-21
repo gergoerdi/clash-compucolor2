@@ -14,6 +14,3 @@ extra-deps:
 packages:
   - clash-intel8080
   - .
-
-ghc-options:
-  dependent-map: -fexpose-all-unfoldings -fno-worker-wrapper
