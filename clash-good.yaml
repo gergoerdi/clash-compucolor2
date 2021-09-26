@@ -1,0 +1,14 @@
+name: clash-good
+resolver: lts-18.5
+
+packages:
+  - github: clash-lang/clash-compiler
+    commit: 06158479b512ae2c890433f774ed96681a217cea
+    subdirs:
+      - clash-ghc
+      - clash-prelude
+      - clash-lib
+
+flags:
+    clash-prelude:
+      multiple-hidden: false

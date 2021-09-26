@@ -84,11 +84,6 @@ ghc-options:
   -fplugin GHC.TypeLits.Normalise
   -fplugin GHC.TypeLits.Extra.Solver
 
-flags:
-  verilator:
-    manual: True
-    default: False
-
 library:
   source-dirs: src
   exposed-modules:
@@ -102,77 +97,6 @@ library:
     - Hardware.Compucolor2.Sim.SDL
     
 executables:
-  compucolor2-font:
-    source-dirs: sim
-    main: font.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - sdl2
-
-  compucolor2-screen:
-    source-dirs: sim
-    main: screen.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - sdl2
-
-  compucolor2-cpu-screen:
-    source-dirs: sim
-    main: cpu-screen.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - sdl2
-
-  compucolor2-cpu-screen-verilator:
-    source-dirs: sim
-    main: cpu-screen-verilator.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - sdl2
-    when:
-    - condition: flag(verilator)
-      then:
-        verbatim:
-          x-clashilator-top-is: Hardware.Compucolor2
-          x-clashilator-entity: simEntity
-      else:
-        buildable: false
-
-  compucolor2-cpu-textscreen:
-    source-dirs: sim
-    main: cpu-textscreen.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - terminal
-
-  compucolor2-cpu-textscreen-verilator:
-    source-dirs: sim
-    main: cpu-textscreen-verilator.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - terminal
-    when:
-    - condition: flag(verilator)
-      then:
-        verbatim:
-          x-clashilator-top-is: Hardware.Compucolor2
-          x-clashilator-entity: simEntity
-      else:
-        buildable: false
-
-  compucolor2-sim:
-    source-dirs: sim
-    main: sim.hs
-    dependencies:
-      - clash-compucolor2
-      - retroclash-sim
-      - sdl2
       
   compucolor2-verilator:
     source-dirs: sim
@@ -182,10 +106,5 @@ executables:
       - retroclash-sim
       - sdl2
       - extra
-    when:
-    - condition: flag(verilator)
-      then:
-        verbatim:
-          x-clashilator-top-is: Hardware.Compucolor2
-      else:
-        buildable: false
+    verbatim:
+      x-clashilator-top-is: Hardware.Compucolor2

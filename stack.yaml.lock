@@ -5,26 +5,44 @@
 
 packages:
 - completed:
-    hackage: clash-prelude-1.4.2@sha256:3f2fcbc991f6d6417c1f0aa786c61b3f2bf810cefd1de0f42876d1d7c6b4c5c5,15932
+    size: 1664896
+    subdir: clash-ghc
+    url: https://github.com/clash-lang/clash-compiler/archive/600aa7e2bf20eefe7f7b2dc739a6ecf3e09254a8.tar.gz
+    name: clash-ghc
+    version: 1.4.2
+    sha256: 989baf41f8d55da1f18ba463ee8ef1c0d8f55bf72037be796bf9e77542d4499f
     pantry-tree:
-      size: 11699
-      sha256: 421f4f3323645b5bb976df57ac524be6402e7f95e5f55252b3367ccc82691da2
+      size: 4171
+      sha256: 1bcf1556d0da5fce1efce764a61eccb1be66fc7e9a0b504adbea5655cb195bf8
   original:
-    hackage: clash-prelude-1.4.2
+    subdir: clash-ghc
+    url: https://github.com/clash-lang/clash-compiler/archive/600aa7e2bf20eefe7f7b2dc739a6ecf3e09254a8.tar.gz
 - completed:
-    hackage: clash-lib-1.4.2@sha256:22e82420363c021358362c6f1ffa489ff09838f21c2e9bb9f2261fdeed4fe8c3,12829
+    size: 1664896
+    subdir: clash-prelude
+    url: https://github.com/clash-lang/clash-compiler/archive/600aa7e2bf20eefe7f7b2dc739a6ecf3e09254a8.tar.gz
+    name: clash-prelude
+    version: 1.4.2
+    sha256: 989baf41f8d55da1f18ba463ee8ef1c0d8f55bf72037be796bf9e77542d4499f
     pantry-tree:
-      size: 19521
-      sha256: 2c1c3bc4cf986ee6a2e26b02b2aea23ad41426a0022f63c13cfdac0f9fd7e2ed
+      size: 13721
+      sha256: de173371fb8d1e3a65e62a8ff5ac6f646264d3f7e72d6fbe103d9e770b1a79ef
   original:
-    hackage: clash-lib-1.4.2
+    subdir: clash-prelude
+    url: https://github.com/clash-lang/clash-compiler/archive/600aa7e2bf20eefe7f7b2dc739a6ecf3e09254a8.tar.gz
 - completed:
-    hackage: clash-ghc-1.4.2@sha256:0f729d412ed0e15c8d8f6596fc3322844da7100966196befdcc22a8af4918209,9011
+    size: 1664896
+    subdir: clash-lib
+    url: https://github.com/clash-lang/clash-compiler/archive/600aa7e2bf20eefe7f7b2dc739a6ecf3e09254a8.tar.gz
+    name: clash-lib
+    version: 1.4.2
+    sha256: 989baf41f8d55da1f18ba463ee8ef1c0d8f55bf72037be796bf9e77542d4499f
     pantry-tree:
-      size: 4073
-      sha256: 030491ab57b56c0c7b93eea9f77ba8d90e2d0ee9174611e5c08e6ecc58145af5
+      size: 19692
+      sha256: 760a4f2ab66656a867fec31402898b4089e480206e98bd89093e3acb907be905
   original:
-    hackage: clash-ghc-1.4.2
+    subdir: clash-lib
+    url: https://github.com/clash-lang/clash-compiler/archive/600aa7e2bf20eefe7f7b2dc739a6ecf3e09254a8.tar.gz
 - completed:
     hackage: barbies-th-0.1.8@sha256:2855c0f80c683ad30295370e5d9e786d909355695054ae4126ae61ea5c7779c4,1085
     pantry-tree:
