@@ -29,17 +29,12 @@ dependencies:
   - ghc-typelits-knownnat
 
   - retroclash-lib
-  - retroclash-sim
   - clash-shake
   - intel8080
 
   - regex-applicative
   - filtrable
 
-  - sdl2
-  - terminal
-
-  - bytestring
   - mtl
   - transformers
   - array
@@ -85,6 +80,9 @@ ghc-options:
   -fplugin GHC.TypeLits.Extra.Solver
 
 flags:
+  sim:
+    manual: True
+    default: True
   verilator:
     manual: True
     default: False
@@ -96,27 +94,33 @@ library:
     - Hardware.Compucolor2.CRT5027
     - Hardware.Compucolor2.TMS5501
     - Hardware.Compucolor2.Video
+    - Hardware.Compucolor2.Video.Plot
     - Hardware.Compucolor2.Sim
-    - Hardware.Compucolor2.Sim.Clash
-    - Hardware.Compucolor2.Sim.Terminal
-    - Hardware.Compucolor2.Sim.SDL
     
 executables:
   compucolor2-font:
     source-dirs: sim
     main: font.hs
+    other-modules: []
     dependencies:
       - clash-compucolor2
       - retroclash-sim
-      - sdl2
+      - bytestring
+    when:
+    - condition: "!flag(sim)"
+      buildable: false
 
   compucolor2-screen:
     source-dirs: sim
     main: screen.hs
+    other-modules: []
     dependencies:
       - clash-compucolor2
       - retroclash-sim
-      - sdl2
+      - bytestring
+    when:
+    - condition: "!flag(sim)"
+      buildable: false
 
   compucolor2-cpu-screen:
     source-dirs: sim
@@ -124,7 +128,11 @@ executables:
     dependencies:
       - clash-compucolor2
       - retroclash-sim
-      - sdl2
+      - bytestring
+      - terminal
+    when:
+    - condition: "!flag(sim)"
+      buildable: false
 
   compucolor2-cpu-screen-verilator:
     source-dirs: sim
@@ -132,15 +140,14 @@ executables:
     dependencies:
       - clash-compucolor2
       - retroclash-sim
-      - sdl2
+      - bytestring
+      - terminal
+    verbatim:
+      x-clashilator-top-is: Hardware.Compucolor2
+      x-clashilator-entity: simEntity
     when:
-    - condition: flag(verilator)
-      then:
-        verbatim:
-          x-clashilator-top-is: Hardware.Compucolor2
-          x-clashilator-entity: simEntity
-      else:
-        buildable: false
+    - condition: "!(flag(sim) && flag(verilator))"
+      buildable: false
 
   compucolor2-cpu-textscreen:
     source-dirs: sim
@@ -149,43 +156,47 @@ executables:
       - clash-compucolor2
       - retroclash-sim
       - terminal
+    when:
+    - condition: "!flag(sim)"
+      buildable: false
 
   compucolor2-cpu-textscreen-verilator:
     source-dirs: sim
     main: cpu-textscreen-verilator.hs
+    other-modules:
+      - Hardware.Compucolor2.Sim.Terminal
     dependencies:
       - clash-compucolor2
       - retroclash-sim
       - terminal
+    verbatim:
+      x-clashilator-top-is: Hardware.Compucolor2
+      x-clashilator-entity: simEntity
     when:
-    - condition: flag(verilator)
-      then:
-        verbatim:
-          x-clashilator-top-is: Hardware.Compucolor2
-          x-clashilator-entity: simEntity
-      else:
-        buildable: false
+    - condition: "!(flag(sim) && flag(verilator))"
+      buildable: false
 
   compucolor2-sim:
     source-dirs: sim
     main: sim.hs
+    other-modules: []
     dependencies:
       - clash-compucolor2
       - retroclash-sim
-      - sdl2
+    when:
+    - condition: "!flag(sim)"
+      buildable: false
       
   compucolor2-verilator:
     source-dirs: sim
     main: verilator.hs
+    other-modules: []
     dependencies:
       - clash-compucolor2
       - retroclash-sim
-      - sdl2
       - extra
+    verbatim:
+      x-clashilator-top-is: Hardware.Compucolor2
     when:
-    - condition: flag(verilator)
-      then:
-        verbatim:
-          x-clashilator-top-is: Hardware.Compucolor2
-      else:
-        buildable: false
+    - condition: "!(flag(sim) && flag(verilator))"
+      buildable: false

@@ -18,9 +18,6 @@ import Data.Word
 import Data.Array ((!))
 import Data.Array.IO
 import Data.Bits
-import SDL.Event as SDL
-import SDL.Input.Keyboard
-import SDL.Input.Keyboard.Codes
 import Control.Monad.Extra
 
 {-# INLINE withRunner #-}
