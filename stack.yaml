@@ -10,7 +10,3 @@ extra-deps:
   - retroclash-sim-0.1.0
   - clash-shake-0.1.0
   - clashilator-0.1.0
-
-packages:
-  - clash-intel8080
-  - .

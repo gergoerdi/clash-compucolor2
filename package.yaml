@@ -29,26 +29,6 @@ dependencies:
   - ghc-typelits-knownnat
 
   - retroclash-lib
-  - retroclash-sim
-  - clash-shake
-  - intel8080
-
-  - regex-applicative
-  - filtrable
-
-  - sdl2
-  - terminal
-
-  - bytestring
-  - mtl
-  - transformers
-  - array
-  - lens
-  - barbies
-  - barbies-th
-  - tuple
-  - extra
-  - template-haskell
 
 # Anything that Clash uses by default should go here
 default-extensions:
@@ -88,13 +68,6 @@ library:
   source-dirs: src
   exposed-modules:
     - Hardware.Compucolor2
-    - Hardware.Compucolor2.CRT5027
-    - Hardware.Compucolor2.TMS5501
-    - Hardware.Compucolor2.Video
-    - Hardware.Compucolor2.Sim
-    - Hardware.Compucolor2.Sim.Clash
-    - Hardware.Compucolor2.Sim.Terminal
-    - Hardware.Compucolor2.Sim.SDL
     
 executables:
       
@@ -103,8 +76,5 @@ executables:
     main: verilator.hs
     dependencies:
       - clash-compucolor2
-      - retroclash-sim
-      - sdl2
-      - extra
     verbatim:
       x-clashilator-top-is: Hardware.Compucolor2
