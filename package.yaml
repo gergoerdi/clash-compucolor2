@@ -139,7 +139,6 @@ executables:
         verbatim:
           x-clashilator-top-is: Hardware.Compucolor2
           x-clashilator-entity: simEntity
-          x-clashilator-clock: CLK_40MHZ
       else:
         buildable: false
 
@@ -164,7 +163,6 @@ executables:
         verbatim:
           x-clashilator-top-is: Hardware.Compucolor2
           x-clashilator-entity: simEntity
-          x-clashilator-clock: CLK_40MHZ
       else:
         buildable: false
 
@@ -189,6 +187,5 @@ executables:
       then:
         verbatim:
           x-clashilator-top-is: Hardware.Compucolor2
-          x-clashilator-clock: CLK_40MHZ
       else:
         buildable: false
