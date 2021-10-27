@@ -5,26 +5,26 @@
 
 packages:
 - completed:
-    hackage: clash-prelude-1.4.2@sha256:3f2fcbc991f6d6417c1f0aa786c61b3f2bf810cefd1de0f42876d1d7c6b4c5c5,15932
+    hackage: clash-prelude-1.4.6@sha256:fdc6a41cd9acd10f1fe5fc585d101590003a78453ed2f9a503c0e415d6165e73,15932
     pantry-tree:
       size: 11699
-      sha256: 421f4f3323645b5bb976df57ac524be6402e7f95e5f55252b3367ccc82691da2
+      sha256: 5a9c1c86f4b66547fda76cd88018c9be4c51472aa14116376daac74badf027e8
   original:
-    hackage: clash-prelude-1.4.2
+    hackage: clash-prelude-1.4.6
 - completed:
-    hackage: clash-lib-1.4.2@sha256:22e82420363c021358362c6f1ffa489ff09838f21c2e9bb9f2261fdeed4fe8c3,12829
+    hackage: clash-lib-1.4.6@sha256:30898bf9c4b0c70cecd1f389f2549acea910a756b65c0b2740533592d00fafc9,12829
     pantry-tree:
-      size: 19521
-      sha256: 2c1c3bc4cf986ee6a2e26b02b2aea23ad41426a0022f63c13cfdac0f9fd7e2ed
+      size: 19522
+      sha256: 9cd3c4124e2f9f150dcd620d794905be754db51e60e2b54bb952d3e2676df501
   original:
-    hackage: clash-lib-1.4.2
+    hackage: clash-lib-1.4.6
 - completed:
-    hackage: clash-ghc-1.4.2@sha256:0f729d412ed0e15c8d8f6596fc3322844da7100966196befdcc22a8af4918209,9011
+    hackage: clash-ghc-1.4.6@sha256:9bd5b89765079f050df2fdf17fe91cb176f0a18276a8a3d7220ac889d2acfa42,9011
     pantry-tree:
       size: 4073
-      sha256: 030491ab57b56c0c7b93eea9f77ba8d90e2d0ee9174611e5c08e6ecc58145af5
+      sha256: fe7f13de0d2fcec3fa987cfcda8336de2ef8aca699a74ff47e1f16e7edc01dff
   original:
-    hackage: clash-ghc-1.4.2
+    hackage: clash-ghc-1.4.6
 - completed:
     hackage: barbies-th-0.1.8@sha256:2855c0f80c683ad30295370e5d9e786d909355695054ae4126ae61ea5c7779c4,1085
     pantry-tree:
@@ -76,7 +76,7 @@ packages:
     hackage: clashilator-0.1.0
 snapshots:
 - completed:
-    size: 585817
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/5.yaml
-    sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887
-  original: lts-18.5
+    size: 586069
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/14.yaml
+    sha256: 87842ecbaa8ca9cee59a7e6be52369dbed82ed075cb4e0d152614a627e8fd488
+  original: lts-18.14
